@@ -1,0 +1,118 @@
+{
+  "meta": {
+    "version": "0.1.0",
+    "base_currency": "TWD",
+    "last_updated": "2026-05-09"
+  },
+  "assets": [
+    {
+      "id": "asset_001",
+      "category": "stock",
+      "name": "Apple Inc.",
+      "ticker": "AAPL",
+      "quantity": 10,
+      "cost_per_unit": 170.00,
+      "currency": "USD",
+      "note": "Core US holding"
+    },
+    {
+      "id": "asset_002",
+      "category": "etf",
+      "name": "Vanguard S&P 500 ETF",
+      "ticker": "VOO",
+      "quantity": 5,
+      "cost_per_unit": 420.00,
+      "currency": "USD",
+      "note": "Index exposure"
+    },
+    {
+      "id": "asset_003",
+      "category": "stock_tw",
+      "name": "台積電",
+      "ticker": "2330.TW",
+      "quantity": 1000,
+      "cost_per_unit": 600.00,
+      "currency": "TWD",
+      "note": "Taiwan semiconductor holding"
+    },
+    {
+      "id": "asset_004",
+      "category": "crypto",
+      "name": "Bitcoin",
+      "ticker": "bitcoin",
+      "quantity": 0.05,
+      "cost_per_unit": 60000.00,
+      "currency": "USD",
+      "note": "CoinGecko id: bitcoin"
+    },
+    {
+      "id": "asset_005",
+      "category": "crypto",
+      "name": "Ethereum",
+      "ticker": "ethereum",
+      "quantity": 0.5,
+      "cost_per_unit": 3000.00,
+      "currency": "USD",
+      "note": "CoinGecko id: ethereum"
+    },
+    {
+      "id": "asset_006",
+      "category": "cash",
+      "name": "台灣現金",
+      "ticker": null,
+      "quantity": 150000,
+      "cost_per_unit": 1,
+      "currency": "TWD",
+      "note": "現金部位，quantity = 金額"
+    },
+    {
+      "id": "asset_007",
+      "category": "cash",
+      "name": "USD Cash",
+      "ticker": null,
+      "quantity": 2000,
+      "cost_per_unit": 1,
+      "currency": "USD",
+      "note": "Cash holdings in USD"
+    },
+    {
+      "id": "asset_008",
+      "category": "other",
+      "name": "黃金 ETF（手動定價）",
+      "ticker": null,
+      "quantity": 3,
+      "cost_per_unit": 180.00,
+      "currency": "USD",
+      "note": "無自動定價，手動輸入每單位市值"
+    }
+  ],
+  "liabilities": [
+    {
+      "id": "liab_001",
+      "category": "credit_card",
+      "name": "信用卡帳單",
+      "amount": 25000,
+      "currency": "TWD",
+      "annual_rate": 0.1499,
+      "note": "每月應繳金額"
+    },
+    {
+      "id": "liab_002",
+      "category": "loan",
+      "name": "學生貸款",
+      "amount": 100000,
+      "currency": "TWD",
+      "annual_rate": 0.02,
+      "note": "政府學貸"
+    },
+    {
+      "id": "liab_003",
+      "category": "margin_loan",
+      "name": "融資餘額",
+      "amount": 50000,
+      "currency": "TWD",
+      "annual_rate": 0.065,
+      "note": "台股融資"
+    }
+  ]
+}

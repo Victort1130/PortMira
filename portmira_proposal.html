@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PortMira — Project Proposal</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#1a5fa8;--blue-bg:#eaf2fd;--blue-bd:#c2d9f0;
+  --ink:#1a1a2e;--muted:#4a4a6a;--light:#7a7a9a;
+  --rule:#dde3ed;--surf:#f8f9fb;
+}
+@page{size:A4;margin:18mm 22mm}
+body{font-family:'Inter',sans-serif;background:#fff;color:var(--ink);font-size:9.5pt;line-height:1.72;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.wrap{max-width:720px;margin:0 auto;padding:40px 52px 56px}
+
+/* header */
+.hdr{border-bottom:2.5px solid var(--blue);padding-bottom:16px;margin-bottom:22px}
+.lbl{font-size:7pt;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--blue);margin-bottom:6px}
+.title{font-size:28pt;font-weight:600;letter-spacing:-.02em;line-height:1.1}
+.tag{font-size:11pt;color:var(--muted);font-style:italic;margin-top:4px}
+.pills{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.pill{font-size:7pt;font-weight:600;background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bd);border-radius:20px;padding:2px 10px;letter-spacing:.04em}
+
+/* summary */
+.sum{background:var(--blue-bg);border-left:3px solid var(--blue);border-radius:0 4px 4px 0;padding:12px 16px;font-style:italic;margin-bottom:22px;line-height:1.68}
+
+/* sections */
+section{margin-bottom:19px;page-break-inside:avoid}
+h2{font-size:7pt;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--blue);border-bottom:1px solid var(--blue-bg);padding-bottom:4px;margin-bottom:9px}
+p{margin-bottom:7px}
+p:last-child{margin-bottom:0}
+ul{padding-left:16px;margin:4px 0 7px}
+li{font-size:9pt;line-height:1.68;margin-bottom:3px}
+li::marker{color:var(--muted)}
+strong{font-weight:600}
+em{font-style:italic;color:var(--muted)}
+code{font-family:'IBM Plex Mono',monospace;font-size:7.8pt;background:#f0f3f8;border:1px solid var(--rule);border-radius:3px;padding:1px 5px;color:var(--muted)}
+
+/* chips */
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin:5px 0 10px}
+.chip{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bd);border-radius:20px;padding:2px 9px;font-size:7.5pt;font-weight:600}
+
+/* two-col */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:7px}
+.sub{background:var(--surf);border:1px solid var(--rule);border-radius:5px;padding:10px 13px}
+.sub-lbl{font-size:8.5pt;font-weight:600;margin-bottom:5px}
+.sub li{font-size:8.5pt}
+
+/* arch */
+.arch{font-family:'IBM Plex Mono',monospace;font-size:7.8pt;background:#f2f4f8;border:1px solid var(--rule);border-radius:5px;padding:12px 14px;line-height:1.9;margin:8px 0;white-space:pre;color:var(--muted)}
+.arch .d{color:var(--blue);font-weight:500}
+.arch .c{color:var(--light)}
+
+/* table */
+table{width:100%;border-collapse:collapse;font-size:8.5pt;margin:7px 0}
+th{background:var(--blue-bg);color:var(--blue);font-weight:600;text-align:left;padding:6px 10px;border-bottom:2px solid var(--rule);font-size:7.5pt;letter-spacing:.06em;text-transform:uppercase}
+td{padding:6px 10px;border-bottom:1px solid var(--rule);vertical-align:top}
+tr:nth-child(even) td{background:var(--surf)}
+tr:last-child td{border-bottom:none}
+
+/* timeline */
+.tl-row{display:flex;gap:11px;align-items:flex-start;margin-bottom:8px}
+.wk{font-size:7.5pt;font-weight:600;background:var(--blue);color:#fff;border-radius:3px;padding:2px 8px;white-space:nowrap;flex-shrink:0;margin-top:2px;letter-spacing:.04em}
+.wk-d{font-size:9pt;line-height:1.65}
+
+/* footer */
+.foot{border-top:1px solid var(--rule);margin-top:32px;padding-top:10px;display:flex;justify-content:space-between;font-size:7.5pt;color:var(--light)}
+
+/* print button — hidden on print */
+.btn{display:block;width:100%;margin-bottom:28px;padding:11px;background:var(--blue);color:#fff;border:none;border-radius:5px;font-size:13px;font-weight:600;cursor:pointer;letter-spacing:.04em}
+.btn:hover{background:#154e8c}
+@media print{.btn{display:none} .wrap{padding:0}}
+@media screen{body{background:#dde3ed;padding:28px 0} .wrap{box-shadow:0 4px 28px rgba(0,0,0,.12);border-radius:6px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<button class="btn" onclick="window.print()">⬇ &nbsp;另存為 PDF &nbsp;—&nbsp; Ctrl + P → 目的地選「另存為 PDF」</button>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="lbl">Undergraduate Python Final Project — Proposal</div>
+  <div class="title">PortMira</div>
+  <div class="tag">A local-first portfolio mirror.</div>
+  <div class="pills">
+    <span class="pill">May 2026</span>
+    <span class="pill">4 Team Members</span>
+    <span class="pill">Python · Streamlit or Flask</span>
+    <span class="pill">Local-First · Privacy-Conscious</span>
+  </div>
+</div>
+
+<!-- SUMMARY -->
+<div class="sum">
+  PortMira is a local-first personal finance dashboard built in Python that lets users input assets and liabilities, fetch live market prices through free APIs, and see their net worth and allocation clearly — without sending any data to the cloud.
+</div>
+
+<!-- 1. MOTIVATION -->
+<section>
+  <h2>Motivation</h2>
+  <p>Personal financial data is rarely in one place. Bank balances, brokerage holdings, crypto positions, loan balances, and cash sit across separate apps, websites, spreadsheets, and memory. Getting a complete, honest picture of one's financial position usually requires significant manual effort — or handing sensitive data to a commercial service with opaque privacy practices.</p>
+  <p>Most personal finance tools push users toward one of two extremes: a bloated banking app focused on spending categories, or an investment platform built around growth predictions and active trading behavior. Neither gives a calm, holistic view of where things actually stand. PortMira takes a different approach — a simple, local-first dashboard that helps users understand what they own and what they owe, clearly and privately.</p>
+</section>
+
+<!-- 2. PROBLEM STATEMENT -->
+<section>
+  <h2>Problem Statement</h2>
+  <p>There is no lightweight, privacy-first tool that consolidates a user's assets and liabilities into one readable view without requiring cloud accounts, subscriptions, or opaque data sharing. Spreadsheets are flexible but demand manual formula work. Finance apps offer convenience but sacrifice privacy. Trading dashboards serve active investors, not users who simply want a calm, honest snapshot of their net worth. PortMira fills this gap.</p>
+</section>
+
+<!-- 3. TARGET USERS -->
+<section>
+  <h2>Target Users</h2>
+  <p>PortMira is designed for individuals who hold assets across currencies and categories — cash in TWD or USD, US or Taiwan stocks, ETFs, and possibly crypto — and want a single, readable view of their position without relying on a commercial platform. The v0.1 user is someone comfortable entering their own data and running a Python application locally.</p>
+</section>
+
+<!-- 4. PHILOSOPHY -->
+<section>
+  <h2>Core Product Philosophy</h2>
+  <div class="chips">
+    <span class="chip">Local-first by default</span>
+    <span class="chip">Privacy-conscious design</span>
+    <span class="chip">Clarity over prediction</span>
+    <span class="chip">Tracking, not advising</span>
+    <span class="chip">Calm over gamified</span>
+    <span class="chip">Working before ambitious</span>
+  </div>
+  <p>All user data stays in local files. Market prices are fetched from external APIs only as a read-only data source. PortMira will not give buy, sell, or hold recommendations. It will not show prediction charts or trading signals. The interface should feel analytical and trustworthy — not attention-driven or hype-oriented. AI features are deliberately out of scope for v0.1 and should only be considered after the core financial data layer is stable and accurate.</p>
+</section>
+
+<!-- 5. MVP FEATURES -->
+<section>
+  <h2>MVP Features</h2>
+  <div class="two-col">
+    <div class="sub">
+      <div class="sub-lbl">Assets &amp; liabilities</div>
+      <ul>
+        <li>Cash in multiple currencies (TWD, USD, EUR, JPY)</li>
+        <li>Stocks and ETFs (US markets; Taiwan via <code>.TW / .TWO</code> if available)</li>
+        <li>Crypto holdings</li>
+        <li>Optional manually priced assets (bonds, commodities)</li>
+        <li>Credit card debt, personal loans, margin loans</li>
+      </ul>
+    </div>
+    <div class="sub">
+      <div class="sub-lbl">Dashboard &amp; calculations</div>
+      <ul>
+        <li>Total assets, total liabilities, net worth</li>
+        <li>Asset allocation by category (chart)</li>
+        <li>Holdings table: value, cost basis, unrealized P/L, daily change</li>
+        <li>Currency toggle: TWD ↔ USD</li>
+        <li>Price movement alerts with user-defined thresholds (3%, 5%, 10%)</li>
+        <li>Margin maintenance ratio calculator</li>
+        <li>Loan / credit card interest calculator</li>
+      </ul>
+    </div>
+  </div>
+  <p>Portfolio data is saved to and reloaded from a local JSON or CSV file, so users do not re-enter holdings each session.</p>
+</section>
+
+<!-- 6. DATA SOURCES -->
+<section>
+  <h2>Data Sources and APIs</h2>
+  <p>PortMira uses only free, publicly accessible APIs as read-only data sources. Python and Pandas handle all cleaning, merging, and calculation — the app never displays raw API responses directly.</p>
+  <ul>
+    <li><strong>Stock and ETF prices:</strong> <code>yfinance</code> or an equivalent free library, covering US tickers and Taiwan tickers where available.</li>
+    <li><strong>Crypto prices:</strong> CoinGecko public API or another free source such as CryptoCompare.</li>
+    <li><strong>Foreign exchange rates:</strong> A free FX API (e.g., ExchangeRate-API, Open Exchange Rates) or a static fallback rate table when the API is unavailable.</li>
+  </ul>
+  <p>If any API call fails due to rate limits or network issues, the app falls back gracefully to the last cached price or a user-entered manual price. The application must remain usable without an active internet connection.</p>
+</section>
+
+<!-- 7. ARCHITECTURE -->
+<section>
+  <h2>Technical Architecture</h2>
+  <p>The project separates financial logic from the interface layer, keeping modules independently testable and easier to migrate to other frameworks in the future.</p>
+<div class="arch"><span class="d">portmira/</span>
+  app.py                   <span class="c"># Main entry point (Streamlit or Flask)</span>
+  <span class="d">src/</span>
+    models.py              <span class="c"># Asset and liability data structures</span>
+    storage.py             <span class="c"># JSON / CSV load and save</span>
+    price_fetcher.py       <span class="c"># yfinance, crypto API, FX API, fallback logic</span>
+    calculations.py        <span class="c"># Net worth, P/L, allocation, alert system</span>
+    charts.py              <span class="c"># Matplotlib, Plotly, or Streamlit charts</span>
+  <span class="d">data/</span>
+    portfolio.json         <span class="c"># Local user portfolio data (sample included)</span>
+  <span class="d">docs/</span>
+    roadmap.md             <span class="c"># Future development plan</span>
+    architecture.md        <span class="c"># Architecture notes</span>
+  README.md
+  requirements.txt</div>
+  <p>The UI will be built using <strong>Streamlit or Flask</strong> with HTML/CSS templates. Streamlit is preferred for rapid prototyping. Visualizations will use <strong>Matplotlib, Plotly, or Streamlit's built-in chart components</strong>. Pandas handles all data aggregation and calculation; raw API responses are never surfaced directly in the interface.</p>
+</section>
+
+<!-- 8. TEAM -->
+<section>
+  <h2>Team Division of Labor</h2>
+  <table>
+    <thead><tr><th>Member</th><th>Primary Responsibility</th><th>Key Deliverables</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Member A</strong></td><td>Data &amp; storage layer</td><td><code>models.py</code>, <code>storage.py</code>, JSON/CSV schema, sample data file</td></tr>
+      <tr><td><strong>Member B</strong></td><td>Price fetching &amp; APIs</td><td><code>price_fetcher.py</code>, API integration, fallback logic, response caching</td></tr>
+      <tr><td><strong>Member C</strong></td><td>Calculations &amp; alerts</td><td><code>calculations.py</code>, net worth, P/L, allocation, alert system, calculators</td></tr>
+      <tr><td><strong>Member D</strong></td><td>UI &amp; dashboard</td><td><code>app.py</code>, <code>charts.py</code>, layout and navigation, README, demo prep</td></tr>
+    </tbody>
+  </table>
+  <p>Each member owns a distinct module with a clear interface, minimizing merge conflicts. Integration sessions are scheduled at the end of Week 2 and Week 4.</p>
+</section>
+
+<!-- 9. TIMELINE -->
+<section>
+  <h2>Development Timeline</h2>
+  <div>
+    <div class="tl-row"><span class="wk">Week 1</span><span class="wk-d">Finalize data schema and asset/liability models. Set up repository. Confirm API choices and assign module ownership. Write sample portfolio data.</span></div>
+    <div class="tl-row"><span class="wk">Week 2</span><span class="wk-d">Build storage layer (JSON/CSV read/write). Implement price fetcher with fallback logic. Begin core calculations: net worth, allocation, unrealized P/L.</span></div>
+    <div class="tl-row"><span class="wk">Week 3</span><span class="wk-d">Integration checkpoint: connect storage, price fetcher, and calculations. Begin UI layout using sample data. Build alert system and basic calculators.</span></div>
+    <div class="tl-row"><span class="wk">Week 4</span><span class="wk-d">Complete dashboard: holdings table, allocation chart, currency toggle, alert display. Add currency conversion. Internal testing with real-world sample scenarios.</span></div>
+    <div class="tl-row"><span class="wk">Week 5</span><span class="wk-d">Polish UI, write README and documentation, prepare demo with sample portfolio, rehearse final presentation. Buffer time for bug fixes and edge cases.</span></div>
+  </div>
+</section>
+
+<!-- 10. RISKS -->
+<section>
+  <h2>Risks and Fallback Plans</h2>
+  <ul>
+    <li><strong>API failures or rate limits:</strong> The app caches the last successful response and allows manual price entry. Core functionality works without internet.</li>
+    <li><strong>Taiwan stock data gaps:</strong> <code>yfinance</code> may not cover all Taiwan-listed tickers reliably. Manual price entry is a first-class fallback, not an afterthought.</li>
+    <li><strong>Scope creep:</strong> v0.1 is strictly bounded to local storage, price fetching, dashboard display, alerts, and two calculators. Any new feature goes to the roadmap.</li>
+    <li><strong>Visualization complexity:</strong> Charts start simple — a pie or bar chart for allocation, a plain table for holdings. Interactivity is added only if time allows.</li>
+    <li><strong>Time pressure:</strong> If the UI falls behind schedule, the team will demonstrate calculations through a simpler interface or Jupyter notebook rather than delay the working demo.</li>
+  </ul>
+</section>
+
+<!-- 11. ROADMAP -->
+<section>
+  <h2>Future Roadmap</h2>
+  <p>The following are explicitly <strong>not</strong> part of v0.1 but represent the natural next phases if the project continues as a public GitHub repository or eventual product:</p>
+  <ul>
+    <li>Repository cleanup, screenshots, polished README, and a public demo mode with sanitized sample data.</li>
+    <li>Cached API responses and smarter refresh logic to reduce external requests.</li>
+    <li>Additional asset classes: bonds, commodities, REITs, private holdings.</li>
+    <li>Import from brokerage-exported CSV files (e.g., Interactive Brokers, Futu).</li>
+    <li>Desktop application packaging or a mobile-friendly interface.</li>
+    <li>Optional AI features — <em>only after the core data layer is stable</em> — such as plain-language portfolio summaries, natural language queries over local data ("What is my USD exposure?"), scenario analysis ("What if this holding drops 10%?"), and monthly financial reflection prompts. These act as an explanation layer, not an investment advisor.</li>
+  </ul>
+</section>
+
+<!-- 12. WHY THIS PROJECT -->
+<section>
+  <h2>Why This Project Is Suitable for a Python Final Project</h2>
+  <p>PortMira covers the core Python curriculum naturally and purposefully. It uses dictionaries and lists for portfolio data, functions for calculation modules, and file I/O for local persistence — foundational concepts taught throughout the course. API integration introduces real-world data fetching. Pandas enables clean numerical processing and aggregation. The modular structure means four teammates can work in parallel on separate files with minimal merge conflicts.</p>
+  <p>The scope is deliberately bounded: the goal is a working, demonstrable local dashboard, not a production finance platform. The team can show a live demo with real prices and a sample portfolio, which makes for a clear and compelling final presentation. At the same time, the architecture is clean enough that the project can continue growing as a GitHub side project after the course ends — making the work genuinely useful, not just academically performative.</p>
+</section>
+
+<!-- FOOTER -->
+<div class="foot">
+  <span>PortMira · Python Final Project Proposal · May 2026</span>
+  <span>Local-First · Privacy-Conscious</span>
+</div>
+
+</div>
+</body>
+</html>

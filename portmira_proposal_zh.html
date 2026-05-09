@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>PortMira — 專案提案書</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#1a5fa8;--blue-bg:#eaf2fd;--blue-bd:#c2d9f0;
+  --ink:#1a1a2e;--muted:#4a4a6a;--light:#7a7a9a;
+  --rule:#dde3ed;--surf:#f8f9fb;
+}
+@page{size:A4;margin:18mm 22mm}
+body{font-family:'Noto Sans TC',sans-serif;background:#fff;color:var(--ink);font-size:10pt;line-height:1.8;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.wrap{max-width:720px;margin:0 auto;padding:40px 52px 56px}
+
+.hdr{border-bottom:2.5px solid var(--blue);padding-bottom:16px;margin-bottom:22px}
+.lbl{font-size:7.5pt;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--blue);margin-bottom:6px}
+.title{font-size:26pt;font-weight:700;letter-spacing:-.01em;line-height:1.15}
+.tag{font-size:11pt;color:var(--muted);font-style:italic;margin-top:4px}
+.pills{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.pill{font-size:7.5pt;font-weight:700;background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bd);border-radius:20px;padding:2px 10px}
+
+.sum{background:var(--blue-bg);border-left:3px solid var(--blue);border-radius:0 4px 4px 0;padding:12px 16px;margin-bottom:22px;line-height:1.8;font-size:10pt}
+
+section{margin-bottom:20px;page-break-inside:avoid}
+h2{font-size:7.5pt;font-weight:700;letter-spacing:.1em;color:var(--blue);border-bottom:1px solid var(--blue-bg);padding-bottom:4px;margin-bottom:9px}
+p{margin-bottom:8px;font-size:10pt}
+p:last-child{margin-bottom:0}
+ul{padding-left:18px;margin:4px 0 7px}
+li{font-size:9.5pt;line-height:1.75;margin-bottom:3px}
+li::marker{color:var(--muted)}
+strong{font-weight:700}
+em{font-style:italic;color:var(--muted)}
+code{font-family:'IBM Plex Mono',monospace;font-size:8pt;background:#f0f3f8;border:1px solid var(--rule);border-radius:3px;padding:1px 5px;color:var(--muted)}
+
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin:5px 0 10px}
+.chip{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bd);border-radius:20px;padding:2px 10px;font-size:8pt;font-weight:700}
+
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px}
+.sub{background:var(--surf);border:1px solid var(--rule);border-radius:5px;padding:10px 13px}
+.sub-lbl{font-size:9pt;font-weight:700;margin-bottom:5px}
+.sub li{font-size:9pt}
+
+.arch{font-family:'IBM Plex Mono',monospace;font-size:7.8pt;background:#f2f4f8;border:1px solid var(--rule);border-radius:5px;padding:12px 14px;line-height:1.9;margin:8px 0;white-space:pre;color:var(--muted)}
+.arch .d{color:var(--blue);font-weight:500}
+.arch .c{color:var(--light)}
+
+table{width:100%;border-collapse:collapse;font-size:9pt;margin:7px 0}
+th{background:var(--blue-bg);color:var(--blue);font-weight:700;text-align:left;padding:6px 10px;border-bottom:2px solid var(--rule);font-size:8pt;letter-spacing:.04em}
+td{padding:6px 10px;border-bottom:1px solid var(--rule);vertical-align:top}
+tr:nth-child(even) td{background:var(--surf)}
+tr:last-child td{border-bottom:none}
+
+.tl-row{display:flex;gap:11px;align-items:flex-start;margin-bottom:8px}
+.wk{font-size:7.5pt;font-weight:700;background:var(--blue);color:#fff;border-radius:3px;padding:2px 8px;white-space:nowrap;flex-shrink:0;margin-top:3px;letter-spacing:.04em}
+.wk-d{font-size:9.5pt;line-height:1.7}
+
+.foot{border-top:1px solid var(--rule);margin-top:32px;padding-top:10px;display:flex;justify-content:space-between;font-size:8pt;color:var(--light)}
+
+.btn{display:block;width:100%;margin-bottom:28px;padding:11px;background:var(--blue);color:#fff;border:none;border-radius:5px;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.04em}
+.btn:hover{background:#154e8c}
+@media print{.btn{display:none}.wrap{padding:0}}
+@media screen{body{background:#dde3ed;padding:28px 0}.wrap{box-shadow:0 4px 28px rgba(0,0,0,.12);border-radius:6px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<button class="btn" onclick="window.print()">⬇ &nbsp;另存為 PDF — Ctrl + P → 目的地選「另存為 PDF」</button>
+
+<div class="hdr">
+  <div class="lbl">大學 Python 程式設計期末專案 — 提案書</div>
+  <div class="title">PortMira</div>
+  <div class="tag">A local-first portfolio mirror．本地優先的資產鏡像工具</div>
+  <div class="pills">
+    <span class="pill">2026 年 5 月</span>
+    <span class="pill">4 人團隊</span>
+    <span class="pill">Python · Streamlit 或 Flask</span>
+    <span class="pill">本地優先 · 隱私保護</span>
+  </div>
+</div>
+
+<div class="sum">
+  PortMira 是一個以 Python 開發的本地優先個人財務儀表板。使用者可以手動輸入資產與負債、透過免費 API 取得即時市場價格、計算淨資產並視覺化資產配置，所有資料皆儲存在本地，不上傳任何資訊至雲端。
+</div>
+
+<section>
+  <h2>動機</h2>
+  <p>個人財務資料往往散落各處——銀行帳戶、券商平台、加密貨幣交易所、試算表，甚至只存在腦海中。要得到一個完整、誠實的財務全貌，通常需要大量手動整理，或者把敏感資料交給隱私政策不透明的商業服務。</p>
+  <p>市面上的理財工具大多走兩個極端：一種是聚焦消費分類的銀行 App，另一種是以投資預測與主動交易為核心的券商平台。兩者都無法提供一個冷靜、全面的財務現況概覽。PortMira 採取不同的方向——一個簡單的本地儀表板，幫助使用者清楚、私密地看清自己擁有什麼、欠下什麼。</p>
+</section>
+
+<section>
+  <h2>問題定義</h2>
+  <p>目前沒有任何輕量、隱私優先的工具，能在不需要雲端帳號、訂閱方案或不透明資料共享的前提下，將使用者的資產與負債整合為一個可讀的視圖。試算表靈活但需要手動維護公式；理財 App 方便但犧牲隱私；交易儀表板服務的是主動投資者，而不是只想靜靜看清自己淨資產的使用者。PortMira 填補這個空缺。</p>
+</section>
+
+<section>
+  <h2>目標使用者</h2>
+  <p>PortMira 設計給持有多幣種、多類別資產的個人——例如持有台幣或美元現金、美股或台股 ETF，以及加密貨幣——希望在不依賴商業平台的情況下，得到一個清晰的資產總覽。v0.1 的目標使用者是願意自行輸入資料、並在本地執行 Python 應用程式的使用者。</p>
+</section>
+
+<section>
+  <h2>核心產品理念</h2>
+  <div class="chips">
+    <span class="chip">預設本地優先</span>
+    <span class="chip">隱私保護設計</span>
+    <span class="chip">清晰勝過預測</span>
+    <span class="chip">追蹤而非建議</span>
+    <span class="chip">冷靜而非遊戲化</span>
+    <span class="chip">可運作優先於功能完整</span>
+  </div>
+  <p>所有使用者資料皆留在本地檔案中。外部 API 僅作為唯讀資料來源，用於取得市場價格。PortMira 不提供任何買進、賣出或持有建議，不顯示預測圖表或交易訊號。介面應給人分析性、值得信任的感受，而非注意力導向或充滿炒作氣氛。AI 功能刻意不納入 v0.1 的範疇，待核心財務資料層穩定後再行考慮。</p>
+</section>
+
+<section>
+  <h2>MVP 功能</h2>
+  <div class="two-col">
+    <div class="sub">
+      <div class="sub-lbl">資產與負債輸入</div>
+      <ul>
+        <li>多幣種現金（台幣、美元、歐元、日圓）</li>
+        <li>股票與 ETF（美股；台股透過 <code>.TW / .TWO</code> 若可用）</li>
+        <li>加密貨幣持倉</li>
+        <li>選填的手動定價資產（債券、大宗商品等）</li>
+        <li>信用卡負債、個人貸款、保證金借款</li>
+      </ul>
+    </div>
+    <div class="sub">
+      <div class="sub-lbl">儀表板與計算</div>
+      <ul>
+        <li>總資產、總負債、淨資產</li>
+        <li>依類別的資產配置圖</li>
+        <li>持倉表：現值、成本、未實現損益、日漲跌</li>
+        <li>幣種切換：台幣 ↔ 美元</li>
+        <li>價格變動警示（使用者自訂門檻：3%、5%、10%）</li>
+        <li>保證金維持率計算機</li>
+        <li>貸款 / 信用卡利息計算機</li>
+      </ul>
+    </div>
+  </div>
+  <p>資產組合資料儲存於本地 JSON 或 CSV 檔案，每次開啟應用程式時自動載入，無需重複輸入。</p>
+</section>
+
+<section>
+  <h2>資料來源與 API</h2>
+  <p>PortMira 僅使用免費公開的 API 作為唯讀資料來源，所有清洗、合併與計算皆由 Python 和 Pandas 處理，應用程式不直接呈現原始 API 回傳結果。</p>
+  <ul>
+    <li><strong>股票與 ETF 價格：</strong><code>yfinance</code> 或同等免費套件，涵蓋美股及可用的台股代號。</li>
+    <li><strong>加密貨幣價格：</strong>CoinGecko 公開 API 或其他免費來源（如 CryptoCompare）。</li>
+    <li><strong>外匯匯率：</strong>免費 FX API（如 ExchangeRate-API、Open Exchange Rates），或在 API 無法使用時切換為靜態備用匯率表。</li>
+  </ul>
+  <p>若任何 API 呼叫因速率限制或網路問題而失敗，應用程式將自動退回至最後一次快取的價格，或使用者手動輸入的價格。即使在沒有網路連線的情況下，應用程式仍應保持可用。</p>
+</section>
+
+<section>
+  <h2>技術架構</h2>
+  <p>專案將財務邏輯與介面層分離，讓各模組可以獨立測試，未來也更容易遷移至其他框架或平台。</p>
+<div class="arch"><span class="d">portmira/</span>
+  app.py                   <span class="c"># 主程式入口（Streamlit 或 Flask）</span>
+  <span class="d">src/</span>
+    models.py              <span class="c"># 資產與負債資料結構</span>
+    storage.py             <span class="c"># JSON / CSV 讀取與儲存</span>
+    price_fetcher.py       <span class="c"># yfinance、加密貨幣 API、外匯 API、備用邏輯</span>
+    calculations.py        <span class="c"># 淨資產、損益、配置比例、警示系統</span>
+    charts.py              <span class="c"># Matplotlib、Plotly 或 Streamlit 圖表</span>
+  <span class="d">data/</span>
+    portfolio.json         <span class="c"># 本地資產組合資料（含範例資料）</span>
+  <span class="d">docs/</span>
+    roadmap.md             <span class="c"># 未來開發計畫</span>
+    architecture.md        <span class="c"># 架構說明</span>
+  README.md
+  requirements.txt</div>
+  <p>UI 使用 <strong>Streamlit 或 Flask</strong> 搭配 HTML/CSS 模板建立，Streamlit 因快速原型開發的優勢為首選。視覺化使用 <strong>Matplotlib、Plotly 或 Streamlit 內建圖表元件</strong>。Pandas 負責所有資料聚合與計算，API 原始回應不直接呈現於介面。</p>
+</section>
+
+<section>
+  <h2>團隊分工</h2>
+  <table>
+    <thead><tr><th>組員</th><th>主要負責</th><th>主要交付項目</th></tr></thead>
+    <tbody>
+      <tr><td><strong>組員 A</strong></td><td>資料與儲存層</td><td><code>models.py</code>、<code>storage.py</code>、JSON/CSV 資料格式、範例資料</td></tr>
+      <tr><td><strong>組員 B</strong></td><td>價格取得與 API</td><td><code>price_fetcher.py</code>、API 整合、備用邏輯、快取機制</td></tr>
+      <tr><td><strong>組員 C</strong></td><td>計算邏輯與警示</td><td><code>calculations.py</code>、淨資產、損益、配置比例、警示系統、計算機</td></tr>
+      <tr><td><strong>組員 D</strong></td><td>UI 與儀表板</td><td><code>app.py</code>、<code>charts.py</code>、版面配置、README、展示準備</td></tr>
+    </tbody>
+  </table>
+  <p>每位組員負責獨立的模組，介面定義清楚，大幅降低 Git 合併衝突。整合測試安排在第 2 週末與第 4 週末進行。</p>
+</section>
+
+<section>
+  <h2>開發時程</h2>
+  <div class="tl-row"><span class="wk">第 1 週</span><span class="wk-d">確認資料格式與資產/負債模型、建立 GitHub 儲存庫、確認 API 選擇與模組分工、撰寫範例資產組合資料。</span></div>
+  <div class="tl-row"><span class="wk">第 2 週</span><span class="wk-d">建立儲存層（JSON/CSV 讀寫）、實作價格取得模組（含備用邏輯）、開始核心計算：淨資產、配置比例、未實現損益。</span></div>
+  <div class="tl-row"><span class="wk">第 3 週</span><span class="wk-d">整合里程碑：串接儲存層、價格模組與計算模組；以範例資料開始建立 UI 版面；實作警示系統與基礎計算機。</span></div>
+  <div class="tl-row"><span class="wk">第 4 週</span><span class="wk-d">完成儀表板：持倉表、配置圖、幣種切換、警示顯示、加入匯率換算；以真實情境範例進行內部測試。</span></div>
+  <div class="tl-row"><span class="wk">第 5 週</span><span class="wk-d">UI 潤飾、撰寫 README 與文件、準備展示用範例資產組合、排練期末報告。保留緩衝時間修復問題。</span></div>
+</section>
+
+<section>
+  <h2>風險與應對方案</h2>
+  <ul>
+    <li><strong>API 失效或速率限制：</strong>應用程式快取最後一次成功的回應，並允許手動輸入價格。核心功能在無網路時仍可正常使用。</li>
+    <li><strong>台股資料缺失：</strong><code>yfinance</code> 對部分台股代號支援可能不完整。手動輸入價格為第一級備用方案，非事後補丁。</li>
+    <li><strong>功能蔓延：</strong>v0.1 嚴格限定在本地儲存、價格取得、儀表板顯示、警示與兩個計算機。任何新功能一律列入 roadmap。</li>
+    <li><strong>視覺化複雜度：</strong>圖表從簡單開始——配置比例用圓餅圖或長條圖，持倉用基本表格。互動功能僅在時間允許時再加入。</li>
+    <li><strong>時程壓力：</strong>若 UI 開發落後，團隊將改以較簡單的介面或 Jupyter Notebook 進行展示，而非延誤可運作的 demo。</li>
+  </ul>
+</section>
+
+<section>
+  <h2>未來 Roadmap</h2>
+  <p>以下功能明確<strong>不屬於 v0.1</strong>，但代表專案後續作為 GitHub 側邊專案或產品發展的自然下一步：</p>
+  <ul>
+    <li>整理儲存庫、加入截圖、完善 README，以及附有匿名範例資料的公開 demo 模式。</li>
+    <li>API 回應快取機制與更智慧的更新頻率控制。</li>
+    <li>支援更多資產類別：債券、大宗商品、REITs、私有資產。</li>
+    <li>從券商匯出的 CSV 檔案匯入（如 Interactive Brokers、富途）。</li>
+    <li>桌面應用程式封裝或行動裝置友善介面。</li>
+    <li>可選的 AI 功能——<em>僅在核心資料層穩定後才考慮</em>——例如用白話文總結資產配置、對本地資料進行自然語言查詢（「我有多少美元曝險？」）、情境分析（「如果這檔股票跌 10% 會怎樣？」）、以及月度財務反思提示。這些功能作為解釋層，而非投資顧問。</li>
+  </ul>
+</section>
+
+<section>
+  <h2>為何適合作為 Python 期末專案</h2>
+  <p>PortMira 自然而有目的地涵蓋了課程的核心 Python 內容：用字典與串列管理資產組合資料、用函式組織計算模組、用檔案 I/O 實現本地儲存——這些都是課程中反覆練習的基礎概念。API 整合引入了真實世界的資料取得場景，Pandas 實現了乾淨的數值處理與聚合。模組化的架構讓四位組員可以並行開發不同檔案，大幅減少合併衝突。</p>
+  <p>專案範疇刻意設定為有邊界的：目標是一個可運作、可展示的本地儀表板，而非一個生產級的金融平台。團隊可以在期末報告現場展示真實價格與範例資產組合，呈現方式清楚且具說服力。同時，程式碼架構足夠乾淨，讓專案在課程結束後仍能持續成長為 GitHub 側邊專案——讓這份工作真正有用，而非只是應付作業。</p>
+</section>
+
+<div class="foot">
+  <span>PortMira · Python 期末專案提案書 · 2026 年 5 月</span>
+  <span>本地優先 · 隱私保護</span>
+</div>
+
+</div>
+</body>
+</html>
