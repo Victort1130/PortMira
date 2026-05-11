@@ -44,13 +44,9 @@ def fetch_market_data():
                 market_data["crypto"][c] = fetched_cryptos[c]
             else:
                 print(f"⚠️ 找不到加密貨幣：{c} (名稱拼錯或無資料)")
-                market_data["crypto"][c] = {"usd": "N/A"}
                 
-        print("✅ 加密貨幣抓取程序完成！")
     except Exception as e:
         print(f"❌ 加密貨幣抓取失敗: {e}")
-        for c in target_cryptos:
-            market_data["crypto"][c] = {"usd": "N/A"}
 
     try:
         print("⏳ 正在抓取最新外幣匯率...")
@@ -64,13 +60,9 @@ def fetch_market_data():
                 market_data["fiat"][fiat] = all_rates[fiat]
             else:
                 print(f"⚠️ 找不到法幣代碼：{fiat} (名稱拼錯或無資料)")
-                market_data["fiat"][fiat] = "N/A"
                 
-        print("✅ 外幣匯率抓取程序完成！")
     except Exception as e:
         print(f"❌ 外幣匯率抓取失敗: {e}")
-        for fiat in target_fiats:
-            market_data["fiat"][fiat] = "N/A"
 
     print("\n📊 === 即時市場報價 ===")
     
