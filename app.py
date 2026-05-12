@@ -9,11 +9,8 @@ from src.calculations import (
     build_fx_rates,
     enrich_assets,
     calc_net_worth,
-    get_alerts,
-    calc_margin_ratio,
-    calc_monthly_interest,
 )
-from src.charts import allocation_pie, net_worth_bar
+from src.charts import allocation_pie, simplified_category_pie
 
 st.set_page_config(page_title="PortMira", page_icon="📊", layout="wide")
 
@@ -27,14 +24,6 @@ with st.sidebar:
     st.markdown("---")
 
     display_currency = st.radio("Display Currency", ["TWD", "USD"], horizontal=True)
-
-    st.markdown("---")
-    alert_threshold = st.select_slider(
-        "Price Alert Threshold",
-        options=[1, 3, 5, 10],
-        value=3,
-        format_func=lambda x: f"{x}%",
-    )
 
     st.markdown("---")
     if st.button("🔄 Refresh Prices"):
@@ -70,157 +59,50 @@ with st.spinner("Fetching latest prices…"):
         display_currency
     )
 
-# Load raw portfolio (fast) for edit tab and calculators
+# Load raw portfolio (fast) for edit tab and holdings tab
 portfolio = load_portfolio()
-assets_df = get_assets_df(portfolio)
 raw_liabilities_df = get_liabilities_df(portfolio)
-fx_rates = build_fx_rates(assets_df, raw_liabilities_df, display_currency)
 
 # ── Tabs ───────────────────────────────────────────────────────────────────────
-tab_dashboard, tab_edit = st.tabs(["📊 Dashboard", "✏️ Edit Portfolio"])
+tab_dashboard, tab_edit, tab_holdings = st.tabs(["📊 總覽", "✏️ 編輯組合", "📋 持倉明細"])
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 1 — Dashboard
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_dashboard:
 
-    if enriched_df is None:
-        st.warning("No assets found. Go to **Edit Portfolio** to add your holdings.")
-        st.stop()
+    if enriched_df is None or enriched_df.empty:
+        st.info("📂 尚未有資產資料。請前往「編輯組合」頁面新增您的資產。")
+    else:
+        # ── Section 1: Net Worth Row ──────────────────────────────────────────
+        nw_left, nw_right = st.columns([1.5, 1])
+        with nw_left:
+            st.metric("💼 淨資產 Net Worth", f"{display_currency} {net_worth:,.0f}")
+        with nw_right:
+            st.metric("📈 總資產 Total Assets", f"{display_currency} {total_assets:,.0f}")
+            st.metric("📉 總負債 Total Liabilities", f"{display_currency} {total_liabilities:,.0f}")
 
-    # Net worth summary
-    st.markdown("---")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total Assets", f"{display_currency} {total_assets:,.0f}")
-    col2.metric("Total Liabilities", f"{display_currency} {total_liabilities:,.0f}")
-    col3.metric("Net Worth", f"{display_currency} {net_worth:,.0f}")
+        st.divider()
 
-    # Charts
-    st.markdown("---")
-    pie_fig, pie_summary = allocation_pie(enriched_df, display_currency)
-    pie_col, summary_col = st.columns([1.2, 1])
-    with pie_col:
-        st.plotly_chart(pie_fig, use_container_width=True)
-    with summary_col:
-        st.markdown("**資產配置說明**")
-        for item in pie_summary:
-            if item.get("is_others"):
-                st.markdown(f"● 其他 Others: {item['pct']:.1f}% ({item['n']} 項合併)")
-            else:
-                st.markdown(f"● {item['label']}: {item['pct']:.1f}%")
-        for item in pie_summary:
-            if not item.get("is_others") and item["pct"] > 50:
-                st.warning(f"⚠️ {item['label']} 佔比超過 50%，集中度偏高")
-    st.plotly_chart(
-        net_worth_bar(total_assets, total_liabilities, net_worth, display_currency),
-        use_container_width=True,
-    )
+        # ── Section 2: Two Pie Charts ─────────────────────────────────────────
+        pie_left, pie_right = st.columns(2)
 
-    # Price alerts
-    alerts_df = get_alerts(enriched_df, alert_threshold)
-    if not alerts_df.empty:
-        st.markdown("---")
-        st.subheader(f"⚠️ Price Alerts  (>{alert_threshold}% daily move)")
-        for _, row in alerts_df.iterrows():
-            direction = "▲" if row["daily_change_pct"] > 0 else "▼"
-            color = "green" if row["daily_change_pct"] > 0 else "red"
-            st.markdown(
-                f"**{row['name']}** &nbsp; :{color}[{direction} {abs(row['daily_change_pct']):.2f}%]"
-                f" &nbsp; {display_currency} {row['market_value']:,.0f}"
-            )
-
-    # Asset table
-    st.markdown("---")
-    st.subheader("Assets")
-    display_cols = [
-        "name", "category", "ticker", "quantity", "currency",
-        "current_price", "daily_change_pct", "market_value", "cost_basis",
-        "unrealized_pl", "unrealized_pl_pct",
-    ]
-    available_cols = [c for c in display_cols if c in enriched_df.columns]
-    st.dataframe(
-        enriched_df[available_cols],
-        column_config={
-            "name": st.column_config.TextColumn("Name"),
-            "category": st.column_config.TextColumn("Category"),
-            "ticker": st.column_config.TextColumn("Ticker"),
-            "quantity": st.column_config.NumberColumn("Qty", format="%.4g"),
-            "currency": st.column_config.TextColumn("CCY"),
-            "current_price": st.column_config.NumberColumn("Price", format="%.2f"),
-            "daily_change_pct": st.column_config.NumberColumn("Day %", format="%.2f"),
-            "market_value": st.column_config.NumberColumn(f"Mkt Value ({display_currency})", format="%.0f"),
-            "cost_basis": st.column_config.NumberColumn(f"Cost Basis ({display_currency})", format="%.0f"),
-            "unrealized_pl": st.column_config.NumberColumn(f"Unreal. P/L ({display_currency})", format="%.0f"),
-            "unrealized_pl_pct": st.column_config.NumberColumn("P/L %", format="%.2f"),
-        },
-        use_container_width=True,
-        hide_index=True,
-    )
-
-    # Liabilities table
-    if liabilities_df is not None and not liabilities_df.empty:
-        st.markdown("---")
-        st.subheader("Liabilities")
-        st.dataframe(
-            liabilities_df,
-            column_config={
-                "amount": st.column_config.NumberColumn("Amount", format="%.0f"),
-                "annual_rate": st.column_config.NumberColumn("Annual Rate", format="%.2%%"),
-            },
-            use_container_width=True,
-            hide_index=True,
-        )
-
-    # Calculators
-    st.markdown("---")
-    st.subheader("🔢 Calculators")
-    calc_col1, calc_col2 = st.columns(2)
-
-    with calc_col1:
-        with st.expander("融資維持率 Margin Maintenance Ratio", expanded=True):
-            total_mv, margin_loan, ratio = calc_margin_ratio(enriched_df, liabilities_df, fx_rates)
-            if margin_loan == 0:
-                st.info("No margin loans found in liabilities.")
-            else:
-                ratio_color = "normal" if ratio >= 130 else "inverse"
-                st.metric(
-                    "Maintenance Ratio",
-                    f"{ratio:.1f}%",
-                    delta=f"{ratio - 130:.1f}% vs 130% threshold",
-                    delta_color=ratio_color,
-                )
-                st.caption(f"Total Portfolio: {display_currency} {total_mv:,.0f}")
-                st.caption(f"Margin Loan: {display_currency} {margin_loan:,.0f}")
-                if ratio < 130:
-                    st.error("⚠️ Below 130% — margin call risk.")
-                elif ratio < 150:
-                    st.warning("Approaching threshold. Monitor closely.")
+        with pie_left:
+            st.caption("資產類別配置")
+            pie_fig, pie_summary = allocation_pie(enriched_df, display_currency)
+            st.plotly_chart(pie_fig, use_container_width=True)
+            for item in pie_summary:
+                if item.get("is_others"):
+                    st.markdown(f"● 其他 Others: {item['pct']:.1f}% ({item['n']} 項合併)")
                 else:
-                    st.success("Healthy margin ratio.")
+                    st.markdown(f"● {item['label']}: {item['pct']:.1f}%")
 
-    with calc_col2:
-        with st.expander("每月利息 Monthly Interest", expanded=True):
-            interest_df, total_interest = calc_monthly_interest(liabilities_df, fx_rates)
-            if interest_df.empty:
-                st.info("No liabilities found.")
-            else:
-                st.metric("Total Monthly Interest", f"{display_currency} {total_interest:,.0f}")
-                st.dataframe(
-                    interest_df,
-                    column_config={
-                        "name": st.column_config.TextColumn("Name"),
-                        "category": st.column_config.TextColumn("Type"),
-                        "amount_base": st.column_config.NumberColumn(
-                            f"Balance ({display_currency})", format="%.0f"
-                        ),
-                        "annual_rate": st.column_config.NumberColumn("Rate", format="%.2%%"),
-                        "monthly_interest": st.column_config.NumberColumn(
-                            f"Monthly ({display_currency})", format="%.0f"
-                        ),
-                    },
-                    use_container_width=True,
-                    hide_index=True,
-                )
+        with pie_right:
+            st.caption("資產大類佔比")
+            st.plotly_chart(
+                simplified_category_pie(enriched_df, display_currency),
+                use_container_width=True,
+            )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -281,6 +163,12 @@ with tab_edit:
             "note":          st.column_config.TextColumn("Note"),
         },
     )
+    if st.button("➕ 新增市場資產", key="add_market_row"):
+        st.session_state["edit_market_df"] = pd.concat(
+            [edited_market, pd.DataFrame([{col: None for col in _MARKET_COLS}])],
+            ignore_index=True,
+        )
+        st.rerun()
 
     st.markdown("---")
 
@@ -303,6 +191,12 @@ with tab_edit:
             "note":          st.column_config.TextColumn("Note"),
         },
     )
+    if st.button("➕ 新增手動資產", key="add_manual_row"):
+        st.session_state["edit_manual_df"] = pd.concat(
+            [edited_manual, pd.DataFrame([{col: None for col in _MANUAL_COLS}])],
+            ignore_index=True,
+        )
+        st.rerun()
 
     st.markdown("---")
 
@@ -324,6 +218,12 @@ with tab_edit:
             "note":        st.column_config.TextColumn("Note"),
         },
     )
+    if st.button("➕ 新增負債", key="add_liab_row"):
+        st.session_state["edit_liab_df"] = pd.concat(
+            [edited_liabilities, pd.DataFrame([{col: None for col in _LIAB_COLS}])],
+            ignore_index=True,
+        )
+        st.rerun()
 
     st.markdown("---")
 
@@ -331,12 +231,31 @@ with tab_edit:
     if st.button("💾 Save Portfolio", type="primary"):
         asset_records = []
 
-        for _, row in edited_market.dropna(subset=["name"]).iterrows():
+        for _, row in edited_market.iterrows():
+            name = row.get("name")
+            ticker = row.get("ticker")
+            if pd.isna(name) or name == "":
+                if pd.isna(ticker) or ticker == "":
+                    continue
+                row = row.copy()
+                row["name"] = ticker
             rec = row.where(pd.notna(row), other=None).to_dict()
+            if not rec.get("cost_per_unit"):
+                rec["cost_per_unit"] = 0
             rec["id"] = f"asset_{len(asset_records)+1:03d}"
             asset_records.append(rec)
 
-        for _, row in edited_manual.dropna(subset=["name"]).iterrows():
+        # Validate manual assets: name is required
+        manual_rows = edited_manual[edited_manual["name"].notna() & (edited_manual["name"] != "")]
+        missing_names = len(edited_manual) - len(manual_rows)
+        if missing_names > 0 and not edited_manual.dropna(how="all").empty:
+            st.warning("手動資產的「名稱」為必填欄位，請補齊後再儲存。")
+            st.stop()
+
+        for _, row in manual_rows.iterrows():
+            row = row.copy()
+            if row.get("category") == "cash" and (pd.isna(row.get("cost_per_unit")) or row.get("cost_per_unit") == 0):
+                row["cost_per_unit"] = 1.0
             rec = row.where(pd.notna(row), other=None).to_dict()
             rec["id"] = f"asset_{len(asset_records)+1:03d}"
             rec["ticker"] = None
@@ -361,3 +280,62 @@ with tab_edit:
 
         st.success("Portfolio saved! Switch to Dashboard to see updated data.")
         st.rerun()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 3 — 持倉明細
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_holdings:
+
+    if enriched_df is None or enriched_df.empty:
+        st.info("尚未有資產資料。")
+    else:
+        # ── Section 1: 資產持倉 ───────────────────────────────────────────────
+        st.subheader("資產持倉")
+        _display_cols = [
+            "name", "ticker", "category", "quantity",
+            "current_price", "cost_per_unit",
+            "market_value", "cost_basis",
+            "unrealized_pl", "unrealized_pl_pct",
+            "daily_change_pct",
+        ]
+        _available = [c for c in _display_cols if c in enriched_df.columns]
+        _numeric_cols = [
+            "market_value", "cost_basis", "unrealized_pl", "unrealized_pl_pct",
+            "current_price", "cost_per_unit", "daily_change_pct",
+        ]
+        _display_df = enriched_df[_available].copy()
+        _comma1_cols = ["market_value", "cost_basis", "unrealized_pl", "current_price", "cost_per_unit"]
+        for _col in _numeric_cols:
+            if _col in _display_df.columns:
+                _display_df[_col] = pd.to_numeric(_display_df[_col], errors="coerce")
+        for _col in _comma1_cols:
+            if _col in _display_df.columns:
+                _display_df[_col] = _display_df[_col].apply(
+                    lambda x: f"{x:,.1f}" if pd.notna(x) else ""
+                )
+
+        st.dataframe(
+            _display_df,
+            column_config={
+                "name":             st.column_config.TextColumn("資產名稱"),
+                "ticker":           st.column_config.TextColumn("代號"),
+                "category":         st.column_config.TextColumn("類別"),
+                "quantity":         st.column_config.NumberColumn("數量", format="%.4g"),
+                "current_price":    st.column_config.TextColumn("現價"),
+                "cost_per_unit":    st.column_config.TextColumn("成本/單位"),
+                "market_value":     st.column_config.TextColumn(f"市值 ({display_currency})"),
+                "cost_basis":       st.column_config.TextColumn(f"總成本 ({display_currency})"),
+                "unrealized_pl":    st.column_config.TextColumn(f"未實現損益 ({display_currency})"),
+                "unrealized_pl_pct":st.column_config.NumberColumn("損益%", format="%+.2f%%"),
+                "daily_change_pct": st.column_config.NumberColumn("日變動%", format="%+.2f%%"),
+            },
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        # ── Section 2: 負債明細 ───────────────────────────────────────────────
+        if raw_liabilities_df is not None and not raw_liabilities_df.empty:
+            st.divider()
+            st.subheader("負債明細")
+            st.dataframe(raw_liabilities_df, use_container_width=True, hide_index=True)

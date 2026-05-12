@@ -57,8 +57,10 @@ def build_fx_rates(
     base_currency: str,
 ) -> dict[str, float]:
     """Return {currency: rate_to_base} for all currencies in the portfolio."""
-    all_currencies: set[str] = set(assets_df["currency"].tolist())
-    if not liabilities_df.empty:
+    all_currencies: set[str] = set()
+    if not assets_df.empty and "currency" in assets_df.columns:
+        all_currencies |= set(assets_df["currency"].tolist())
+    if not liabilities_df.empty and "currency" in liabilities_df.columns:
         all_currencies |= set(liabilities_df["currency"].tolist())
     return fetch_all_fx_rates(list(all_currencies), base_currency)
 

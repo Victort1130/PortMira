@@ -5,20 +5,23 @@ import pandas as pd
 from src.models import Asset
 
 DEFAULT_PATH = "data/portfolio.json"
-FALLBACK_PATH = "data/sample_portfolio.json"
+_EMPTY_PORTFOLIO = {"assets": [], "liabilities": [], "meta": {"last_updated": ""}}
 
 
 def load_portfolio(filepath=None):
     """Read a portfolio JSON file and return its contents as a dict."""
     if filepath is None:
-        filepath = DEFAULT_PATH if os.path.exists(DEFAULT_PATH) else FALLBACK_PATH
+        filepath = DEFAULT_PATH
+
+    if not os.path.exists(filepath):
+        return _EMPTY_PORTFOLIO.copy()
 
     try:
         with open(filepath, "r", encoding="utf-8") as f:
             return json.load(f)
-    except FileNotFoundError:
-        print(f"[storage] File not found: {filepath}")
-        return {}
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        print(f"[storage] Error reading {filepath}: {e}")
+        return _EMPTY_PORTFOLIO.copy()
 
 
 def get_assets_df(portfolio):

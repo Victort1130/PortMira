@@ -15,29 +15,49 @@ CATEGORY_LABELS = {
 def allocation_pie(
     enriched_df: pd.DataFrame, base_currency: str = "TWD"
 ) -> tuple[go.Figure, list]:
-    """Pie chart of portfolio allocation by asset category.
+    """Pie chart of portfolio allocation by individual asset.
 
-    Slices below 3% or beyond rank 10 are merged into '其他 Others'.
+    Label is ticker (if available) or name. Slices below 3% or beyond rank 10
+    are merged into '其他 Others'.
     Returns (fig, summary) where summary is a list of dicts:
       { label, pct, is_others }  — or { label, pct, n, is_others } for the Others slice.
     """
-    by_cat = (
-        enriched_df.groupby("category")["market_value"]
-        .sum()
-        .reset_index()
-        .rename(columns={"category": "Category", "market_value": "Value"})
-    )
-    by_cat["Category"] = by_cat["Category"].map(lambda c: CATEGORY_LABELS.get(c, c))
-    total = by_cat["Value"].sum()
-    if total == 0:
+    df = enriched_df.copy()
+
+    # FIX 3: ensure market_value is numeric before any aggregation
+    df["market_value"] = pd.to_numeric(df["market_value"], errors="coerce").fillna(0)
+
+    # display_label: ticker → name → "Unknown" (never NaN, so groupby never drops a row)
+    def _label(r):
+        t = r.get("ticker")
+        if pd.notna(t) and str(t).strip() != "":
+            return str(t).strip()
+        n = r.get("name")
+        if pd.notna(n) and str(n).strip() != "":
+            return str(n).strip()
+        return "Unknown"
+
+    df["display_label"] = df.apply(_label, axis=1)
+
+    # total from ALL rows — matches the dashboard metric (must not be derived from groupby,
+    # which would silently drop NaN-labelled rows under the old code)
+    total_value = df["market_value"].sum()
+    if total_value == 0:
         return go.Figure(), []
 
-    by_cat["pct"] = by_cat["Value"] / total * 100
-    by_cat = by_cat.sort_values("Value", ascending=False).reset_index(drop=True)
+    by_asset = (
+        df.groupby("display_label")["market_value"]
+        .sum()
+        .reset_index()
+        .rename(columns={"display_label": "Category", "market_value": "Value"})
+    )
 
-    visible_mask = (by_cat["pct"] >= 3.0) & (by_cat.index < 10)
-    visible = by_cat[visible_mask].copy()
-    others = by_cat[~visible_mask].copy()
+    by_asset["pct"] = by_asset["Value"] / total_value * 100
+    by_asset = by_asset.sort_values("Value", ascending=False).reset_index(drop=True)
+
+    visible_mask = (by_asset["pct"] >= 3.0) & (by_asset.index < 10)
+    visible = by_asset[visible_mask].copy()
+    others = by_asset[~visible_mask].copy()
 
     if not others.empty:
         others_row = pd.DataFrame([{
@@ -74,25 +94,30 @@ def allocation_pie(
     return fig, summary
 
 
-def net_worth_bar(
-    total_assets: float,
-    total_liabilities: float,
-    net_worth: float,
-    base_currency: str = "TWD",
+def simplified_category_pie(
+    enriched_df: pd.DataFrame, base_currency: str = "TWD"
 ) -> go.Figure:
-    """Bar chart comparing total assets, total liabilities, and net worth."""
-    fig = go.Figure(
-        go.Bar(
-            x=["Total Assets", "Total Liabilities", "Net Worth"],
-            y=[total_assets, total_liabilities, net_worth],
-            marker_color=["#2ecc71", "#e74c3c", "#3498db"],
-            text=[f"{v:,.0f}" for v in [total_assets, total_liabilities, net_worth]],
-            textposition="outside",
-        )
+    """Pie chart grouping assets into 4 broad categories."""
+    GROUPS = {
+        "股票 Stock": ["stock", "stock_tw", "etf"],
+        "加密貨幣 Crypto": ["crypto"],
+        "現金 Cash": ["cash"],
+        "其他 Other": ["other"],
+    }
+    rows = [
+        {"Category": label, "Value": enriched_df[enriched_df["category"].isin(cats)]["market_value"].sum()}
+        for label, cats in GROUPS.items()
+    ]
+    plot_df = pd.DataFrame([r for r in rows if r["Value"] > 0])
+    if plot_df.empty:
+        return go.Figure()
+
+    fig = px.pie(
+        plot_df,
+        names="Category",
+        values="Value",
+        color_discrete_sequence=px.colors.qualitative.Set2,
     )
-    fig.update_layout(
-        title=f"Net Worth Overview ({base_currency})",
-        yaxis_title=base_currency,
-        margin=dict(t=50, b=0, l=0, r=0),
-    )
+    fig.update_traces(textposition="inside", textinfo="percent+label")
+    fig.update_layout(showlegend=True, margin=dict(t=50, b=0, l=0, r=0))
     return fig
