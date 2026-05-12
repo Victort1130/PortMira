@@ -1,84 +1,99 @@
+import yfinance as yf
 import requests
-import json
-import time
 
-def fetch_market_data():
-    print("💡 常見加密貨幣：bitcoin, ethereum, solana, dogecoin, ripple")
-    crypto_input = input("👉 請輸入需要的加密貨幣 (用逗號分隔，按 Enter 預設為 bitcoin, ethereum)：")
-    
-    print("\n💡 常見法幣代碼：TWD, JPY, EUR, GBP, KRW")
-    fiat_input = input("👉 請輸入需要的法幣匯率 (用逗號分隔，按 Enter 預設為 TWD, JPY)：")
-    
-    if crypto_input.strip() == "":
-        target_cryptos = ["bitcoin", "ethereum"]
-    else:
-        target_cryptos = [c.strip().lower() for c in crypto_input.split(",")]
 
-    if fiat_input.strip() == "":
-        target_fiats = ["TWD", "JPY"]
-    else:
-        target_fiats = [f.strip().upper() for f in fiat_input.split(",")]
+def fetch_stock_prices(tickers: list[str]) -> dict[str, float]:
+    """Fetch latest price for each yfinance ticker. Returns {ticker: price}."""
+    prices = {}
+    for t in tickers:
+        try:
+            price = yf.Ticker(t).fast_info["last_price"]
+            if price:
+                prices[t] = float(price)
+        except Exception as e:
+            print(f"[price_fetcher] {t}: {e}")
+    return prices
 
-    market_data = {
-        "fetch_time": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "crypto": {},
-        "fiat": {}
-    }
 
+def fetch_crypto_prices(coin_ids: list[str], vs_currency: str = "usd") -> dict[str, float]:
+    """Fetch current prices from CoinGecko. Returns {coin_id: price_in_vs_currency}."""
+    if not coin_ids:
+        return {}
+    url = "https://api.coingecko.com/api/v3/simple/price"
+    params = {"ids": ",".join(coin_ids), "vs_currencies": vs_currency}
     try:
-        print("\n⏳ 正在抓取加密貨幣價格...")
-        crypto_ids = ",".join(target_cryptos)
-        crypto_url = f"https://api.coingecko.com/api/v3/simple/price?ids={crypto_ids}&vs_currencies=usd"
-        
-        crypto_res = requests.get(crypto_url, timeout=5)
-        
-        if crypto_res.status_code == 429:
-            print("⚠️ 警告：觸發 API 速率限制 (Rate Limit)")
-            fetched_cryptos = {}
-        else:
-            crypto_res.raise_for_status()
-            fetched_cryptos = crypto_res.json()
-        
-        for c in target_cryptos:
-            if c in fetched_cryptos and fetched_cryptos[c]:
-                market_data["crypto"][c] = fetched_cryptos[c]
-            else:
-                print(f"⚠️ 找不到加密貨幣：{c} (名稱拼錯或無資料)")
-                
+        r = requests.get(url, params=params, timeout=10)
+        if r.status_code == 429:
+            print("[price_fetcher] CoinGecko rate limit hit, skipping crypto prices")
+            return {}
+        r.raise_for_status()
+        data = r.json()
+        return {cid: data[cid][vs_currency] for cid in coin_ids if cid in data}
     except Exception as e:
-        print(f"❌ 加密貨幣抓取失敗: {e}")
+        print(f"[price_fetcher] CoinGecko error: {e}")
+        return {}
 
+
+def fetch_prev_closes(tickers: list[str]) -> dict[str, float]:
+    """Fetch previous close price for each yfinance ticker. Returns {ticker: prev_close}."""
+    prev_closes = {}
+    for t in tickers:
+        try:
+            prev_closes[t] = float(yf.Ticker(t).fast_info["previous_close"])
+        except Exception as e:
+            print(f"[price_fetcher] prev_close {t}: {e}")
+    return prev_closes
+
+
+def fetch_crypto_prev_closes(coin_ids: list[str]) -> dict[str, float]:
+    """Estimate previous close for crypto using CoinGecko 24h change. Returns {coin_id: prev_close}."""
+    if not coin_ids:
+        return {}
+    url = "https://api.coingecko.com/api/v3/simple/price"
+    params = {"ids": ",".join(coin_ids), "vs_currencies": "usd", "include_24hr_change": "true"}
     try:
-        print("⏳ 正在抓取最新外幣匯率...")
-        fiat_url = "https://api.exchangerate-api.com/v4/latest/USD"
-        fiat_res = requests.get(fiat_url, timeout=5)
-        fiat_res.raise_for_status()
-        all_rates = fiat_res.json().get("rates", {})
-        
-        for fiat in target_fiats:
-            if fiat in all_rates:
-                market_data["fiat"][fiat] = all_rates[fiat]
-            else:
-                print(f"⚠️ 找不到法幣代碼：{fiat} (名稱拼錯或無資料)")
-                
+        r = requests.get(url, params=params, timeout=10)
+        if r.status_code == 429:
+            return {}
+        r.raise_for_status()
+        data = r.json()
+        prev_closes = {}
+        for cid in coin_ids:
+            if cid not in data:
+                continue
+            price = data[cid].get("usd", 0)
+            change_pct = data[cid].get("usd_24h_change") or 0
+            divisor = 1 + change_pct / 100
+            if price and divisor:
+                prev_closes[cid] = price / divisor
+        return prev_closes
     except Exception as e:
-        print(f"❌ 外幣匯率抓取失敗: {e}")
+        print(f"[price_fetcher] crypto prev_close error: {e}")
+        return {}
 
-    print("\n📊 === 即時市場報價 ===")
-    
-    for crypto, data in market_data["crypto"].items():
-        usd_price = data.get('usd') if isinstance(data, dict) else data
-        print(f"🔹 {crypto.capitalize()}: ${usd_price}")
-        
-    print("-" * 20) 
-    
-    for fiat, rate in market_data["fiat"].items():
-        print(f"💵 1 USD = {rate} {fiat}")
 
-    with open('latest_prices.json', 'w', encoding='utf-8') as f:
-        json.dump(market_data, f, indent=4, ensure_ascii=False)
-        
-    print("\n📁 客製化資料已經完美存入 latest_prices.json！")
+def fetch_all_fx_rates(currencies: list[str], base_currency: str) -> dict[str, float]:
+    """Fetch all FX rates in one request using exchangerate-api.com.
 
-if __name__ == "__main__":
-    fetch_market_data()
+    Returns {currency: rate_to_base}, e.g. {"USD": 32.5, "TWD": 1.0} when base is TWD.
+    """
+    result: dict[str, float] = {base_currency: 1.0}
+    foreign = [c for c in set(currencies) if c != base_currency]
+    if not foreign:
+        return result
+    try:
+        r = requests.get(
+            f"https://api.exchangerate-api.com/v4/latest/{base_currency}",
+            timeout=10,
+        )
+        r.raise_for_status()
+        # api_rates["USD"] = how many USD per 1 TWD (e.g. 0.031)
+        # we want: how many TWD per 1 USD = 1 / 0.031 ≈ 32.5
+        api_rates = r.json().get("rates", {})
+        for ccy in foreign:
+            rate = api_rates.get(ccy)
+            result[ccy] = (1.0 / rate) if rate else 1.0
+        return result
+    except Exception as e:
+        print(f"[price_fetcher] FX batch error: {e}")
+        return {ccy: 1.0 for ccy in currencies}
