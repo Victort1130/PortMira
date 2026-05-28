@@ -21,9 +21,21 @@ class Asset:
 # Category constants used by calculations.py
 STOCK_CATEGORIES = frozenset({"stock", "stock_tw", "etf"})
 CRYPTO_CATEGORIES = frozenset({"crypto"})
+COMMODITY_CATEGORIES = frozenset({"commodity"})
 CASH_CATEGORIES = frozenset({"cash"})
 MANUAL_CATEGORIES = frozenset({"other"})
-AUTO_PRICE_CATEGORIES = STOCK_CATEGORIES | CRYPTO_CATEGORIES
+AUTO_PRICE_CATEGORIES = STOCK_CATEGORIES | CRYPTO_CATEGORIES | COMMODITY_CATEGORIES
+
+COMMODITY_TICKERS = {
+    "GC=F": "黃金 Gold",
+    "CL=F": "WTI 原油 Crude Oil",
+    "SI=F": "白銀 Silver",
+    "HG=F": "銅 Copper",
+    "NG=F": "天然氣 Natural Gas",
+    "PL=F": "鉑金 Platinum",
+    "ZW=F": "小麥 Wheat",
+    "ZC=F": "玉米 Corn",
+}
 
 
 EXPENSE_CATEGORIES = ["餐飲", "交通", "訂閱服務", "娛樂", "投資支出", "醫療", "購物", "其他"]

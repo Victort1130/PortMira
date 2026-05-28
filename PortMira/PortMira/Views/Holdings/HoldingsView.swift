@@ -2,7 +2,10 @@ import SwiftUI
 
 struct HoldingsView: View {
     @Environment(PortfolioStore.self) private var store
-    @State private var showCagr  = false
+    @State private var showCagr             = false
+    @State private var showIndicators       = false
+    @State private var indicators:          [IndicatorResult] = []
+    @State private var isLoadingIndicators  = false
     @State private var sortOrder = [KeyPathComparator(\EnrichedAsset.marketValue, order: .reverse)]
 
     var body: some View {
@@ -25,6 +28,11 @@ struct HoldingsView: View {
                 if !store.portfolio.liabilities.isEmpty {
                     LiabilitiesTable()
                 }
+
+                if showIndicators {
+                    Divider()
+                    IndicatorsTable(indicators: indicators, isLoading: isLoadingIndicators)
+                }
             }
         }
         .navigationTitle("持倉明細")
@@ -38,6 +46,17 @@ struct HoldingsView: View {
             }
             ToolbarItem {
                 Button {
+                    if indicators.isEmpty {
+                        Task { await loadIndicators() }
+                    }
+                    showIndicators.toggle()
+                } label: {
+                    Label("技術指標", systemImage: "chart.line.uptrend.xyaxis")
+                }
+                .help("顯示/隱藏 RSI 與 MACD 技術指標")
+            }
+            ToolbarItem {
+                Button {
                     Task { await store.refreshPrices() }
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
@@ -45,6 +64,13 @@ struct HoldingsView: View {
                 .disabled(store.isRefreshing)
             }
         }
+    }
+
+    private func loadIndicators() async {
+        isLoadingIndicators = true
+        let svc = TechnicalIndicatorService()
+        indicators = await svc.fetchAll(assets: store.portfolio.assets)
+        isLoadingIndicators = false
     }
 }
 
@@ -184,5 +210,65 @@ private func plPctText(_ value: Double?) -> some View {
         } else {
             Text("—").foregroundStyle(.secondary)
         }
+    }
+}
+
+// MARK: - Technical Indicators Table
+
+private struct IndicatorsTable: View {
+    let indicators: [IndicatorResult]
+    let isLoading:  Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("技術指標（RSI 14 / MACD 12-26-9）").font(.headline)
+                Spacer()
+                Text("數值僅供參考，不構成買賣建議")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal)
+            .padding(.top, 12)
+
+            if isLoading {
+                ProgressView("計算中…")
+                    .frame(maxWidth: .infinity)
+                    .padding()
+            } else if indicators.isEmpty {
+                Text("無可計算指標的資產（需有 ticker 的股票、ETF、加密貨幣或大宗商品）")
+                    .foregroundStyle(.secondary)
+                    .padding()
+            } else {
+                Table(indicators) {
+                    TableColumn("名稱", value: \.name)
+                    TableColumn("代碼", value: \.ticker)
+                    TableColumn("RSI") { r in
+                        Text(r.rsi.map { String(format: "%.1f", $0) } ?? "—")
+                            .monospacedDigit()
+                            .foregroundStyle(rsiColor(r.rsi))
+                    }
+                    .width(60)
+                    TableColumn("RSI 狀態", value: \.rsiContext)
+                    .width(100)
+                    TableColumn("MACD") { r in
+                        Text(r.macd.map { String(format: "%.4f", $0) } ?? "—")
+                            .monospacedDigit()
+                    }
+                    .width(90)
+                    TableColumn("MACD 狀態", value: \.macdContext)
+                    .width(120)
+                }
+                .frame(minHeight: 200,
+                       maxHeight: min(CGFloat(indicators.count) * 44 + 44, 360))
+            }
+        }
+    }
+
+    private func rsiColor(_ rsi: Double?) -> Color {
+        guard let r = rsi else { return .primary }
+        if r >= 70 { return .red }
+        if r <= 30 { return .green }
+        return .primary
     }
 }

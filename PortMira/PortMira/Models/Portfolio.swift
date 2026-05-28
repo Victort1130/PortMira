@@ -95,28 +95,42 @@ struct PortfolioMeta: Codable {
 // MARK: - Enums
 
 enum AssetCategory: String, Codable, CaseIterable {
-    case stock    = "stock"
-    case stockTW  = "stock_tw"
-    case etf      = "etf"
-    case crypto   = "crypto"
-    case cash     = "cash"
-    case other    = "other"
+    case stock     = "stock"
+    case stockTW   = "stock_tw"
+    case etf       = "etf"
+    case crypto    = "crypto"
+    case commodity = "commodity"
+    case cash      = "cash"
+    case other     = "other"
 
     var displayName: String {
         switch self {
-        case .stock:   return "US Stock"
-        case .stockTW: return "TW Stock"
-        case .etf:     return "ETF"
-        case .crypto:  return "Crypto"
-        case .cash:    return "Cash"
-        case .other:   return "Other"
+        case .stock:     return "US Stock"
+        case .stockTW:   return "TW Stock"
+        case .etf:       return "ETF"
+        case .crypto:    return "Crypto"
+        case .commodity: return "Commodity"
+        case .cash:      return "Cash"
+        case .other:     return "Other"
         }
     }
 
     var isAutoPrice: Bool {
         switch self {
-        case .stock, .stockTW, .etf, .crypto: return true
-        case .cash, .other:                   return false
+        case .stock, .stockTW, .etf, .crypto, .commodity: return true
+        case .cash, .other:                                return false
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .stock:     return "chart.line.uptrend.xyaxis"
+        case .stockTW:   return "building.columns"
+        case .etf:       return "chart.bar.fill"
+        case .crypto:    return "bitcoinsign.circle"
+        case .commodity: return "chart.bar.fill"
+        case .cash:      return "banknote"
+        case .other:     return "ellipsis.circle"
         }
     }
 }

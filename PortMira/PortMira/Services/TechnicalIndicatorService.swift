@@ -1,0 +1,181 @@
+import Foundation
+
+// MARK: - Result type
+
+struct IndicatorResult: Identifiable {
+    let id:          String   // asset id
+    let name:        String
+    let ticker:      String
+    let rsi:         Double?
+    let rsiContext:  String
+    let macd:        Double?
+    let macdSignal:  Double?
+    let macdHist:    Double?
+    let macdContext: String
+}
+
+// MARK: - Service
+
+actor TechnicalIndicatorService {
+
+    // MARK: Fetch 3-month daily closes from Yahoo Finance
+
+    func fetchCloses(ticker: String) async throws -> [Double] {
+        let end   = Int(Date().timeIntervalSince1970)
+        let start = end - 90 * 86400
+        let urlStr = "https://query1.finance.yahoo.com/v8/finance/chart/\(ticker)?interval=1d&period1=\(start)&period2=\(end)"
+        guard let url = URL(string: urlStr) else { return [] }
+        var req = URLRequest(url: url, timeoutInterval: 15)
+        req.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+        let (data, _) = try await URLSession.shared.data(for: req)
+
+        struct Resp: Decodable {
+            struct Chart: Decodable {
+                struct Result: Decodable {
+                    struct Indicators: Decodable {
+                        struct Quote: Decodable { let close: [Double?]? }
+                        let quote: [Quote]
+                    }
+                    let indicators: Indicators
+                }
+                let result: [Result]?
+            }
+            let chart: Chart
+        }
+
+        let resp = try JSONDecoder().decode(Resp.self, from: data)
+        return resp.chart.result?.first?.indicators.quote.first?.close?.compactMap { $0 } ?? []
+    }
+
+    // MARK: RSI (period = 14)
+
+    func calcRSI(_ closes: [Double], period: Int = 14) -> Double? {
+        guard closes.count > period else { return nil }
+        var gains  = 0.0
+        var losses = 0.0
+        for i in 1...period {
+            let d = closes[closes.count - period - 1 + i] - closes[closes.count - period - 2 + i]
+            if d > 0 { gains += d } else { losses -= d }
+        }
+        let avgGain = gains  / Double(period)
+        let avgLoss = losses / Double(period)
+        guard avgLoss > 0 else { return 100.0 }
+        let rs = avgGain / avgLoss
+        return (100.0 - 100.0 / (1.0 + rs)).rounded(toPlaces: 1)
+    }
+
+    // MARK: MACD (fast=12, slow=26, signal=9)
+
+    func calcMACD(
+        _ closes: [Double],
+        fast: Int = 12, slow: Int = 26, signal: Int = 9
+    ) -> (macd: Double?, signal: Double?, hist: Double?) {
+        guard closes.count >= slow + signal else { return (nil, nil, nil) }
+
+        func ema(_ data: [Double], span: Int) -> [Double] {
+            let k = 2.0 / Double(span + 1)
+            var result = [data[0]]
+            for i in 1..<data.count {
+                result.append(data[i] * k + result.last! * (1 - k))
+            }
+            return result
+        }
+
+        let emaFast   = ema(closes, span: fast)
+        let emaSlow   = ema(closes, span: slow)
+        let macdLine  = zip(emaFast.suffix(emaSlow.count), emaSlow).map { $0 - $1 }
+        let signalLine = ema(macdLine, span: signal)
+        let hist       = zip(macdLine.suffix(signalLine.count), signalLine).map { $0 - $1 }
+
+        return (
+            macdLine.last?.rounded(toPlaces: 4),
+            signalLine.last?.rounded(toPlaces: 4),
+            hist.last?.rounded(toPlaces: 4)
+        )
+    }
+
+    // MARK: Context strings
+
+    func rsiContext(_ rsi: Double?) -> String {
+        guard let r = rsi else { return "" }
+        if r >= 70 { return "短期偏超買" }
+        if r <= 30 { return "短期偏超賣" }
+        if r >= 60 { return "偏強" }
+        if r <= 40 { return "偏弱" }
+        return "中性"
+    }
+
+    func macdContext(_ macd: Double?, _ signal: Double?, _ hist: Double?) -> String {
+        guard let h = hist, let m = macd, let s = signal else { return "" }
+        if h > 0 && m > s { return "MACD 多頭排列" }
+        if h < 0 && m < s { return "MACD 空頭排列" }
+        if h > 0           { return "動能轉強" }
+        return "動能轉弱"
+    }
+
+    // MARK: Fetch all eligible assets
+
+    func fetchAll(assets: [Asset]) async -> [IndicatorResult] {
+        let eligible = assets.filter {
+            ["stock", "stock_tw", "etf", "crypto", "commodity"].contains($0.category.rawValue)
+            && !($0.ticker ?? "").isEmpty
+        }
+
+        return await withTaskGroup(of: IndicatorResult?.self) { group in
+            for asset in eligible {
+                group.addTask {
+                    let ticker = asset.category == .crypto
+                        ? self.cryptoToYahoo(asset.ticker ?? "")
+                        : (asset.ticker ?? "")
+                    guard !ticker.isEmpty,
+                          let closes = try? await self.fetchCloses(ticker: ticker),
+                          !closes.isEmpty
+                    else { return nil }
+
+                    let rsi                    = self.calcRSI(closes)
+                    let (macd, sig, hist)      = self.calcMACD(closes)
+                    return IndicatorResult(
+                        id:          asset.id,
+                        name:        asset.name,
+                        ticker:      ticker,
+                        rsi:         rsi,
+                        rsiContext:  self.rsiContext(rsi),
+                        macd:        macd,
+                        macdSignal:  sig,
+                        macdHist:    hist,
+                        macdContext: self.macdContext(macd, sig, hist)
+                    )
+                }
+            }
+            var results: [IndicatorResult] = []
+            for await r in group {
+                if let r { results.append(r) }
+            }
+            return results.sorted { $0.name < $1.name }
+        }
+    }
+
+    // MARK: Crypto ticker mapping (CoinGecko id → Yahoo Finance ticker)
+
+    private func cryptoToYahoo(_ id: String) -> String {
+        let map: [String: String] = [
+            "bitcoin":      "BTC-USD",
+            "ethereum":     "ETH-USD",
+            "binancecoin":  "BNB-USD",
+            "cardano":      "ADA-USD",
+            "solana":       "SOL-USD",
+            "ripple":       "XRP-USD",
+            "dogecoin":     "DOGE-USD",
+        ]
+        return map[id.lowercased()] ?? "\(id.uppercased())-USD"
+    }
+}
+
+// MARK: - Double rounding helper
+
+private extension Double {
+    func rounded(toPlaces places: Int) -> Double {
+        let d = pow(10.0, Double(places))
+        return (self * d).rounded() / d
+    }
+}

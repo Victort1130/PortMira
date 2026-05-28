@@ -1,6 +1,6 @@
 import pandas as pd
 from datetime import date
-from src.models import STOCK_CATEGORIES, CRYPTO_CATEGORIES
+from src.models import STOCK_CATEGORIES, CRYPTO_CATEGORIES, COMMODITY_CATEGORIES
 from src.price_fetcher import (
     fetch_stock_prices,
     fetch_crypto_prices,
@@ -14,8 +14,10 @@ def build_prices(assets_df: pd.DataFrame) -> dict[str, float]:
     """Fetch market prices for all auto-priced assets. Returns {ticker: price}."""
     prices: dict[str, float] = {}
 
+    # Stocks, ETFs, and commodities all go through yfinance
+    yf_categories = STOCK_CATEGORIES | COMMODITY_CATEGORIES
     stock_tickers = (
-        assets_df[assets_df["category"].isin(STOCK_CATEGORIES) & assets_df["ticker"].notna()]["ticker"]
+        assets_df[assets_df["category"].isin(yf_categories) & assets_df["ticker"].notna()]["ticker"]
         .tolist()
     )
     if stock_tickers:
@@ -35,8 +37,10 @@ def build_prev_closes(assets_df: pd.DataFrame) -> dict[str, float]:
     """Fetch previous close prices for daily change calculation. Returns {ticker: prev_close}."""
     prev_closes: dict[str, float] = {}
 
+    # Stocks, ETFs, and commodities all go through yfinance
+    yf_categories = STOCK_CATEGORIES | COMMODITY_CATEGORIES
     stock_tickers = (
-        assets_df[assets_df["category"].isin(STOCK_CATEGORIES) & assets_df["ticker"].notna()]["ticker"]
+        assets_df[assets_df["category"].isin(yf_categories) & assets_df["ticker"].notna()]["ticker"]
         .tolist()
     )
     if stock_tickers:

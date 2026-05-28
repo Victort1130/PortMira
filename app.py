@@ -142,11 +142,11 @@ hr { border-color: #e2e8f0 !important; margin: 1.25rem 0 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-ASSET_CATEGORIES = ["stock", "stock_tw", "etf", "crypto", "cash", "other"]
+ASSET_CATEGORIES = ["stock", "stock_tw", "etf", "crypto", "commodity", "cash", "other"]
 LIAB_CATEGORIES  = ["credit_card", "loan", "margin_loan", "other_liability"]
 CURRENCIES       = ["TWD", "USD", "EUR", "JPY", "GBP"]
 
-_MARKET_CATS = ["stock", "stock_tw", "etf", "crypto"]
+_MARKET_CATS = ["stock", "stock_tw", "etf", "crypto", "commodity"]
 _MANUAL_CATS = ["cash", "other"]
 _MARKET_COLS = ["name", "category", "ticker", "quantity", "cost_per_unit",
                 "currency", "purchase_date", "target_pct", "note"]
@@ -197,8 +197,8 @@ portfolio          = load_portfolio()
 raw_liabilities_df = get_liabilities_df(portfolio)
 
 # ── Tabs ───────────────────────────────────────────────────────────────────────
-tab_dashboard, tab_edit, tab_holdings, tab_rebalance, tab_scenario, tab_budget, tab_backtest = st.tabs([
-    "📊 總覽", "✏️ 編輯組合", "📋 持倉明細", "⚖️ 再平衡", "🔮 情境分析", "💰 預算追蹤", "📈 回測工具",
+tab_dashboard, tab_edit, tab_holdings, tab_rebalance, tab_scenario, tab_budget, tab_backtest, tab_news = st.tabs([
+    "📊 總覽", "✏️ 編輯組合", "📋 持倉明細", "⚖️ 再平衡", "🔮 情境分析", "💰 預算追蹤", "📈 回測工具", "📰 市場資訊",
 ])
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -273,6 +273,67 @@ with tab_dashboard:
             )
             st.markdown('</div>', unsafe_allow_html=True)
 
+        st.divider()
+
+        # ── Commodity Market Prices ───────────────────────────────────────────
+        st.markdown("### 🏅 大宗商品行情")
+        st.caption("主要大宗商品即時報價（USD）")
+
+        _MARKET_COMMODITIES = {
+            "GC=F": "黃金",
+            "CL=F": "WTI原油",
+            "SI=F": "白銀",
+            "NG=F": "天然氣",
+        }
+
+        if "commodity_prices" not in st.session_state:
+            import yfinance as _yf_comm
+            try:
+                _comm_raw = _yf_comm.download(
+                    list(_MARKET_COMMODITIES.keys()),
+                    period="2d",
+                    auto_adjust=True,
+                    progress=False,
+                )
+                st.session_state["commodity_prices"] = _comm_raw
+            except Exception:
+                st.session_state["commodity_prices"] = None
+
+        _comm_data = st.session_state.get("commodity_prices")
+        _comm_cols = st.columns(4)
+        for _ci, (_sym, _cname) in enumerate(_MARKET_COMMODITIES.items()):
+            with _comm_cols[_ci]:
+                try:
+                    if _comm_data is not None and not _comm_data.empty and "Close" in _comm_data.columns:
+                        _close_col = _comm_data["Close"]
+                        if hasattr(_close_col, "columns") and _sym in _close_col.columns:
+                            _series = _close_col[_sym].dropna()
+                        elif not hasattr(_close_col, "columns"):
+                            # Single ticker fallback
+                            _series = _close_col.dropna()
+                        else:
+                            _series = pd.Series(dtype=float)
+                        if len(_series) >= 2:
+                            _cur_price = float(_series.iloc[-1])
+                            _prev_price = float(_series.iloc[-2])
+                            _delta_pct = (_cur_price - _prev_price) / _prev_price * 100
+                            st.metric(
+                                label=f"{_cname} ({_sym})",
+                                value=f"${_cur_price:,.2f}",
+                                delta=f"{_delta_pct:+.2f}%",
+                            )
+                        elif len(_series) == 1:
+                            st.metric(
+                                label=f"{_cname} ({_sym})",
+                                value=f"${float(_series.iloc[-1]):,.2f}",
+                            )
+                        else:
+                            st.metric(label=f"{_cname} ({_sym})", value="—")
+                    else:
+                        st.metric(label=f"{_cname} ({_sym})", value="—")
+                except Exception:
+                    st.metric(label=f"{_cname} ({_sym})", value="—")
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 2 — Edit Portfolio
@@ -309,7 +370,7 @@ with tab_edit:
         )
 
     st.subheader("市場型資產  Market Assets")
-    st.caption("Stocks · ETFs · Crypto — prices fetched automatically.")
+    st.caption("Stocks · ETFs · Crypto · Commodities — prices fetched automatically via yfinance.")
 
     edited_market = st.data_editor(
         st.session_state["edit_market_df"],
@@ -512,6 +573,36 @@ with tab_holdings:
             use_container_width=True, hide_index=True,
         )
 
+        st.divider()
+
+        # ── Technical Indicators ─────────────────────────────────────────────
+        with st.expander("📈 技術指標（RSI / MACD）", expanded=False):
+            st.caption("數值僅供參考，不構成買賣建議。RSI 基於 14 日，MACD 基於 12/26/9 EMA。")
+
+            if st.button("載入技術指標", key="load_indicators"):
+                from src.technical_indicators import fetch_indicators_batch
+                with st.spinner("計算中..."):
+                    _assets = portfolio.get("assets", [])
+                    st.session_state["tech_indicators"] = fetch_indicators_batch(_assets)
+
+            _indicators = st.session_state.get("tech_indicators", {})
+            if _indicators:
+                _ind_rows = []
+                for a in portfolio.get("assets", []):
+                    ind = _indicators.get(a["id"])
+                    if ind:
+                        _ind_rows.append({
+                            "名稱": a["name"],
+                            "RSI (14)": f"{ind['rsi']}" if ind["rsi"] is not None else "—",
+                            "RSI 狀態": ind["rsi_ctx"] or "—",
+                            "MACD": f"{ind['macd']:.4f}" if ind["macd"] is not None else "—",
+                            "MACD 狀態": ind["macd_ctx"] or "—",
+                        })
+                if _ind_rows:
+                    st.dataframe(pd.DataFrame(_ind_rows), use_container_width=True, hide_index=True)
+                else:
+                    st.info("持倉中沒有可計算技術指標的資產（需要股票、ETF 或加密貨幣代碼）")
+
         if raw_liabilities_df is not None and not raw_liabilities_df.empty:
             st.divider()
             st.subheader("負債明細")
@@ -659,7 +750,7 @@ with tab_scenario:
                 if _selected_event_key:
                     for _cat, _shock in _event["shocks"]["categories"].items():
                         _sk = f"shock_{_cat}"
-                        if _sk in ["shock_stock", "shock_stock_tw", "shock_etf", "shock_crypto", "shock_other"]:
+                        if _sk in ["shock_stock", "shock_stock_tw", "shock_etf", "shock_crypto", "shock_commodity", "shock_other"]:
                             st.session_state[_sk] = int(_shock * 100)
                     for _cur, _shock in _event["shocks"]["fx"].items():
                         _fk = f"fx_{_cur}"
@@ -691,23 +782,25 @@ with tab_scenario:
                     loaded_fx   = loaded_sc.get("shocks", {}).get("fx", {})
                     # Write to session_state when scenario changes so keyed sliders update
                     if selected_name != st.session_state.get("_applied_scenario_name", "__unset__"):
-                        st.session_state["shock_stock"]    = int(loaded_cat.get("stock",    0) * 100)
-                        st.session_state["shock_stock_tw"] = int(loaded_cat.get("stock_tw", 0) * 100)
-                        st.session_state["shock_etf"]      = int(loaded_cat.get("etf",      0) * 100)
-                        st.session_state["shock_crypto"]   = int(loaded_cat.get("crypto",   0) * 100)
-                        st.session_state["shock_other"]    = int(loaded_cat.get("other",    0) * 100)
-                        st.session_state["fx_USD"]         = int(loaded_fx.get("USD", 0) * 100)
-                        st.session_state["fx_EUR"]         = int(loaded_fx.get("EUR", 0) * 100)
-                        st.session_state["fx_JPY"]         = int(loaded_fx.get("JPY", 0) * 100)
+                        st.session_state["shock_stock"]     = int(loaded_cat.get("stock",     0) * 100)
+                        st.session_state["shock_stock_tw"]  = int(loaded_cat.get("stock_tw",  0) * 100)
+                        st.session_state["shock_etf"]       = int(loaded_cat.get("etf",       0) * 100)
+                        st.session_state["shock_crypto"]    = int(loaded_cat.get("crypto",    0) * 100)
+                        st.session_state["shock_commodity"] = int(loaded_cat.get("commodity", 0) * 100)
+                        st.session_state["shock_other"]     = int(loaded_cat.get("other",     0) * 100)
+                        st.session_state["fx_USD"]          = int(loaded_fx.get("USD", 0) * 100)
+                        st.session_state["fx_EUR"]          = int(loaded_fx.get("EUR", 0) * 100)
+                        st.session_state["fx_JPY"]          = int(loaded_fx.get("JPY", 0) * 100)
                         st.session_state["_applied_scenario_name"] = selected_name
                         st.session_state["_applied_event_key"]     = "__unset__"
 
             st.caption("資產類別漲跌幅")
-            shock_stock    = st.slider("股票 Stock",      -100, 100, int(loaded_cat.get("stock",    0)*100), step=1, format="%d%%", key="shock_stock")    / 100
-            shock_stock_tw = st.slider("台股 TW Stock",   -100, 100, int(loaded_cat.get("stock_tw", 0)*100), step=1, format="%d%%", key="shock_stock_tw") / 100
-            shock_etf      = st.slider("ETF",             -100, 100, int(loaded_cat.get("etf",      0)*100), step=1, format="%d%%", key="shock_etf")      / 100
-            shock_crypto   = st.slider("加密貨幣 Crypto", -100, 100, int(loaded_cat.get("crypto",   0)*100), step=1, format="%d%%", key="shock_crypto")   / 100
-            shock_other    = st.slider("其他 Other",      -100, 100, int(loaded_cat.get("other",    0)*100), step=1, format="%d%%", key="shock_other")    / 100
+            shock_stock     = st.slider("股票 Stock",           -100, 100, int(loaded_cat.get("stock",     0)*100), step=1, format="%d%%", key="shock_stock")     / 100
+            shock_stock_tw  = st.slider("台股 TW Stock",        -100, 100, int(loaded_cat.get("stock_tw",  0)*100), step=1, format="%d%%", key="shock_stock_tw")  / 100
+            shock_etf       = st.slider("ETF",                  -100, 100, int(loaded_cat.get("etf",       0)*100), step=1, format="%d%%", key="shock_etf")       / 100
+            shock_crypto    = st.slider("加密貨幣 Crypto",      -100, 100, int(loaded_cat.get("crypto",    0)*100), step=1, format="%d%%", key="shock_crypto")    / 100
+            shock_commodity = st.slider("大宗商品 Commodity",   -100, 100, int(loaded_cat.get("commodity", 0)*100), step=1, format="%d%%", key="shock_commodity") / 100
+            shock_other     = st.slider("其他 Other",           -100, 100, int(loaded_cat.get("other",     0)*100), step=1, format="%d%%", key="shock_other")     / 100
 
             st.caption("匯率變動（正 = 外幣升值）")
             fx_usd = st.slider("USD", -30, 30, int(loaded_fx.get("USD", 0)*100), step=1, format="%d%%", key="fx_USD") / 100
@@ -726,7 +819,8 @@ with tab_scenario:
                         "shocks": {
                             "categories": {
                                 "stock": shock_stock, "stock_tw": shock_stock_tw,
-                                "etf": shock_etf, "crypto": shock_crypto, "other": shock_other,
+                                "etf": shock_etf, "crypto": shock_crypto,
+                                "commodity": shock_commodity, "other": shock_other,
                             },
                             "fx": {"USD": fx_usd, "EUR": fx_eur, "JPY": fx_jpy},
                         },
@@ -742,7 +836,8 @@ with tab_scenario:
         with result_col:
             category_shocks = {
                 "stock": shock_stock, "stock_tw": shock_stock_tw,
-                "etf": shock_etf, "crypto": shock_crypto, "other": shock_other,
+                "etf": shock_etf, "crypto": shock_crypto,
+                "commodity": shock_commodity, "other": shock_other,
             }
             fx_shock_map = {"USD": fx_usd, "EUR": fx_eur, "JPY": fx_jpy}
 
@@ -1022,3 +1117,81 @@ with tab_backtest:
                 _df_ar["return"] = _df_ar["return"].map(lambda x: f"{x*100:.1f}%")
                 _df_ar.columns = ["資產名稱", "代碼", "區間報酬率"]
                 st.dataframe(_df_ar, use_container_width=True, hide_index=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 8 — 市場資訊
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_news:
+    from src.news_fetcher import fetch_macro_news, fetch_market_news, fetch_stock_news
+
+    st.subheader("📰 市場資訊")
+    st.caption("新聞來源：Fed RSS、Yahoo Finance、CNBC、Guardian。情緒標記由關鍵字自動分析，僅供參考。")
+
+    # Refresh button
+    _news_col1, _news_col2 = st.columns([4, 1])
+    with _news_col2:
+        if st.button("🔄 重新整理", key="refresh_news"):
+            for k in ["news_macro", "news_market", "news_stocks"]:
+                if k in st.session_state:
+                    del st.session_state[k]
+            st.rerun()
+
+    # Load news (cached in session_state)
+    if "news_macro" not in st.session_state:
+        with st.spinner("載入總體經濟新聞..."):
+            st.session_state["news_macro"] = fetch_macro_news(limit=8)
+
+    if "news_market" not in st.session_state:
+        with st.spinner("載入市場新聞..."):
+            st.session_state["news_market"] = fetch_market_news(limit=10)
+
+    # Get portfolio tickers for stock news
+    _news_tickers = [
+        a.get("ticker") for a in portfolio.get("assets", [])
+        if a.get("category") in ("stock", "stock_tw", "etf") and a.get("ticker")
+    ]
+    if "news_stocks" not in st.session_state and _news_tickers:
+        with st.spinner("載入個股新聞..."):
+            st.session_state["news_stocks"] = fetch_stock_news(_news_tickers)
+
+    # Three sub-tabs
+    _ntab1, _ntab2, _ntab3 = st.tabs(["🏛️ 總體經濟", "📊 主要市場", "📈 持倉個股"])
+
+    def _render_news_list(items: list):
+        if not items:
+            st.info("暫無新聞資料")
+            return
+        for item in items:
+            col_s, col_t = st.columns([0.05, 0.95])
+            with col_s:
+                st.markdown(item.get("sentiment", "⚪"))
+            with col_t:
+                src = f" · {item['source']}" if item.get("source") else ""
+                pub = f" · {item['published'][:10]}" if item.get("published") else ""
+                st.markdown(f"[{item['title']}]({item['link']}){src}{pub}")
+
+    with _ntab1:
+        st.caption("央行政策、財政政策、總體經濟數據")
+        _render_news_list(st.session_state.get("news_macro", []))
+
+    with _ntab2:
+        st.caption("主要指數與市場動態")
+        _render_news_list(st.session_state.get("news_market", []))
+
+    with _ntab3:
+        if _news_tickers:
+            st.caption(f"追蹤：{', '.join(_news_tickers[:6])}")
+            _stock_news = st.session_state.get("news_stocks", [])
+            if _stock_news:
+                from collections import defaultdict
+                _by_ticker = defaultdict(list)
+                for item in _stock_news:
+                    _by_ticker[item.get("ticker", "其他")].append(item)
+                for _t, _items in _by_ticker.items():
+                    with st.expander(f"**{_t}**（{len(_items)} 則）", expanded=True):
+                        _render_news_list(_items)
+            else:
+                st.info("暫無個股新聞")
+        else:
+            st.info("持倉中沒有股票或 ETF，無個股新聞")

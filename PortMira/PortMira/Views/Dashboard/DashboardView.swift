@@ -72,6 +72,10 @@ struct DashboardView: View {
                         description: Text("請前往「編輯組合」新增資產，再按 Refresh 抓取價格。")
                     )
                 }
+
+                // ── Commodity market widget ───────────────────────────────
+                Divider()
+                CommodityMarketView()
             }
             .padding()
         }
@@ -115,10 +119,11 @@ struct CategoryPieChart: View {
 
     var data: [Slice] {
         let groups: [(String, [AssetCategory])] = [
-            ("股票 Stock",      [.stock, .stockTW, .etf]),
-            ("加密貨幣 Crypto", [.crypto]),
-            ("現金 Cash",       [.cash]),
-            ("其他 Other",      [.other]),
+            ("股票 Stock",        [.stock, .stockTW, .etf]),
+            ("加密貨幣 Crypto",   [.crypto]),
+            ("大宗商品 Commodity",[.commodity]),
+            ("現金 Cash",         [.cash]),
+            ("其他 Other",        [.other]),
         ]
         return groups.compactMap { label, cats in
             let total = store.enrichedAssets
@@ -222,5 +227,86 @@ struct MetricCard: View {
         .background(.background)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
+    }
+}
+
+// MARK: - Commodity Market Widget
+
+struct CommodityMarketView: View {
+    @State private var prices: [String: (price: Double, change: Double)] = [:]
+    @State private var isLoading = false
+
+    private let watchlist: [(ticker: String, name: String)] = [
+        ("GC=F",  "黃金"),
+        ("CL=F",  "WTI 原油"),
+        ("SI=F",  "白銀"),
+        ("NG=F",  "天然氣"),
+    ]
+
+    var body: some View {
+        GroupBox("大宗商品行情") {
+            if isLoading {
+                ProgressView().frame(maxWidth: .infinity)
+            } else if prices.isEmpty {
+                Text("點擊重新整理載入行情")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+                    .frame(maxWidth: .infinity)
+            } else {
+                LazyVGrid(
+                    columns: [GridItem(.flexible()), GridItem(.flexible())],
+                    spacing: 8
+                ) {
+                    ForEach(watchlist, id: \.ticker) { item in
+                        if let p = prices[item.ticker] {
+                            CommodityPriceCard(name: item.name, price: p.price, change: p.change)
+                        }
+                    }
+                }
+            }
+        }
+        .task { await loadPrices() }
+    }
+
+    private func loadPrices() async {
+        guard prices.isEmpty else { return }
+        isLoading = true
+        let tickers = watchlist.map(\.ticker)
+        async let current = PriceService.fetchStockPrices(tickers: tickers)
+        async let prev    = PriceService.fetchPrevCloses(tickers: tickers)
+        let (cur, pre) = await (current, prev)
+        var result: [String: (Double, Double)] = [:]
+        for t in tickers {
+            if let c = cur[t], let p = pre[t], p > 0 {
+                result[t] = (c, (c - p) / p)
+            } else if let c = cur[t] {
+                result[t] = (c, 0.0)
+            }
+        }
+        prices = result
+        isLoading = false
+    }
+}
+
+struct CommodityPriceCard: View {
+    let name:   String
+    let price:  Double
+    let change: Double
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(name)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(price, format: .number.precision(.fractionLength(2)))
+                .font(.subheadline.bold().monospacedDigit())
+            Text("\(change >= 0 ? "+" : "")\(change * 100, format: .number.precision(.fractionLength(2)))%")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(change >= 0 ? .green : .red)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(8)
+        .background(.regularMaterial)
+        .cornerRadius(8)
     }
 }

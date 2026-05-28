@@ -3,12 +3,13 @@ import plotly.express as px
 import pandas as pd
 
 CATEGORY_LABELS = {
-    "stock":   "US Stock",
-    "stock_tw":"TW Stock",
-    "etf":     "ETF",
-    "crypto":  "Crypto",
-    "cash":    "Cash",
-    "other":   "Other",
+    "stock":     "US Stock",
+    "stock_tw":  "TW Stock",
+    "etf":       "ETF",
+    "crypto":    "Crypto",
+    "commodity": "Commodity",
+    "cash":      "Cash",
+    "other":     "Other",
 }
 
 _PALETTE = [
@@ -102,10 +103,11 @@ def allocation_pie(enriched_df: pd.DataFrame, base_currency: str = "TWD") -> tup
 
 def simplified_category_pie(enriched_df: pd.DataFrame, base_currency: str = "TWD") -> go.Figure:
     GROUPS = {
-        "股票 Stock":     ["stock", "stock_tw", "etf"],
-        "加密貨幣 Crypto": ["crypto"],
-        "現金 Cash":      ["cash"],
-        "其他 Other":     ["other"],
+        "股票 Stock":       ["stock", "stock_tw", "etf"],
+        "加密貨幣 Crypto":  ["crypto"],
+        "大宗商品 Commodity": ["commodity"],
+        "現金 Cash":        ["cash"],
+        "其他 Other":       ["other"],
     }
     enriched_df = enriched_df.copy()
     enriched_df["market_value"] = pd.to_numeric(enriched_df["market_value"], errors="coerce").fillna(0)
@@ -118,7 +120,7 @@ def simplified_category_pie(enriched_df: pd.DataFrame, base_currency: str = "TWD
     if plot_df.empty:
         return go.Figure()
 
-    colors = ["#4f46e5", "#7c3aed", "#10b981", "#94a3b8"][:len(plot_df)]
+    colors = ["#4f46e5", "#7c3aed", "#f59e0b", "#10b981", "#94a3b8"][:len(plot_df)]
 
     fig = go.Figure(go.Pie(
         labels=plot_df["label"],

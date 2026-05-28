@@ -3,11 +3,12 @@ import SwiftUI
 struct ScenarioView: View {
     @Environment(PortfolioStore.self) private var store
 
-    @State private var shockStock:   Double = 0
-    @State private var shockStockTW: Double = 0
-    @State private var shockETF:     Double = 0
-    @State private var shockCrypto:  Double = 0
-    @State private var shockOther:   Double = 0
+    @State private var shockStock:     Double = 0
+    @State private var shockStockTW:   Double = 0
+    @State private var shockETF:       Double = 0
+    @State private var shockCrypto:    Double = 0
+    @State private var shockCommodity: Double = 0
+    @State private var shockOther:     Double = 0
 
     @State private var fxUSD: Double = 0
     @State private var fxEUR: Double = 0
@@ -19,8 +20,12 @@ struct ScenarioView: View {
     @State private var selectedEventId: String? = nil
 
     var categoryShocks: [String: Double] {[
-        "stock": shockStock / 100, "stock_tw": shockStockTW / 100,
-        "etf": shockETF / 100, "crypto": shockCrypto / 100, "other": shockOther / 100,
+        "stock":     shockStock / 100,
+        "stock_tw":  shockStockTW / 100,
+        "etf":       shockETF / 100,
+        "crypto":    shockCrypto / 100,
+        "commodity": shockCommodity / 100,
+        "other":     shockOther / 100,
     ]}
 
     var fxShocks: [String: Double] {[
@@ -115,11 +120,12 @@ struct ScenarioView: View {
 
                 VStack(alignment: .leading, spacing: 12) {
                     Text("資產類別漲跌幅").font(.headline)
-                    ShockSlider(label: "股票 Stock",       value: $shockStock)
-                    ShockSlider(label: "台股 TW Stock",    value: $shockStockTW)
-                    ShockSlider(label: "ETF",              value: $shockETF)
-                    ShockSlider(label: "加密貨幣 Crypto",  value: $shockCrypto)
-                    ShockSlider(label: "其他 Other",       value: $shockOther)
+                    ShockSlider(label: "股票 Stock",           value: $shockStock)
+                    ShockSlider(label: "台股 TW Stock",        value: $shockStockTW)
+                    ShockSlider(label: "ETF",                  value: $shockETF)
+                    ShockSlider(label: "加密貨幣 Crypto",      value: $shockCrypto)
+                    ShockSlider(label: "大宗商品 Commodity",   value: $shockCommodity)
+                    ShockSlider(label: "其他 Other",           value: $shockOther)
                 }
 
                 Divider()
@@ -186,11 +192,12 @@ struct ScenarioView: View {
         guard let id, let event = historicalEvents.first(where: { $0.id == id }) else { return }
         let cats = event.categoryShocks
         let fx   = event.fxShocks
-        shockStock   = (cats["stock"]    ?? 0) * 100
-        shockStockTW = (cats["stock_tw"] ?? 0) * 100
-        shockETF     = (cats["etf"]      ?? 0) * 100
-        shockCrypto  = (cats["crypto"]   ?? 0) * 100
-        shockOther   = (cats["other"]    ?? 0) * 100
+        shockStock     = (cats["stock"]     ?? 0) * 100
+        shockStockTW   = (cats["stock_tw"]  ?? 0) * 100
+        shockETF       = (cats["etf"]       ?? 0) * 100
+        shockCrypto    = (cats["crypto"]    ?? 0) * 100
+        shockCommodity = (cats["commodity"] ?? 0) * 100
+        shockOther     = (cats["other"]     ?? 0) * 100
         fxUSD = (fx["USD"] ?? 0) * 100
         fxEUR = (fx["EUR"] ?? 0) * 100
         fxJPY = (fx["JPY"] ?? 0) * 100
@@ -201,11 +208,12 @@ struct ScenarioView: View {
         scenarioName = sc.name
         let cats = sc.shocks.categories
         let fx   = sc.shocks.fx
-        shockStock   = (cats["stock"]    ?? 0) * 100
-        shockStockTW = (cats["stock_tw"] ?? 0) * 100
-        shockETF     = (cats["etf"]      ?? 0) * 100
-        shockCrypto  = (cats["crypto"]   ?? 0) * 100
-        shockOther   = (cats["other"]    ?? 0) * 100
+        shockStock     = (cats["stock"]     ?? 0) * 100
+        shockStockTW   = (cats["stock_tw"]  ?? 0) * 100
+        shockETF       = (cats["etf"]       ?? 0) * 100
+        shockCrypto    = (cats["crypto"]    ?? 0) * 100
+        shockCommodity = (cats["commodity"] ?? 0) * 100
+        shockOther     = (cats["other"]     ?? 0) * 100
         fxUSD = (fx["USD"] ?? 0) * 100
         fxEUR = (fx["EUR"] ?? 0) * 100
         fxJPY = (fx["JPY"] ?? 0) * 100

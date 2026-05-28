@@ -126,6 +126,7 @@ enum PriceService {
     // MARK: - Convenience: fetch all at once
 
     static func fetchAll(assets: [Asset]) async -> (prices: [String: Double], prevCloses: [String: Double]) {
+        // Includes stock, stock_tw, etf, commodity (all have isAutoPrice == true and are not .crypto)
         let stockTickers = assets.filter { $0.category.isAutoPrice && $0.category != .crypto }
                                   .compactMap { $0.ticker }
         let cryptoIds    = assets.filter { $0.category == .crypto }.compactMap { $0.ticker }

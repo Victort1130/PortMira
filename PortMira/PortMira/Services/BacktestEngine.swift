@@ -123,7 +123,7 @@ actor BacktestEngine {
         switch asset.category {
         case .crypto:
             return cryptoTickerMap[ticker.lowercased()] ?? "\(ticker.uppercased())-USD"
-        case .stock, .stockTW, .etf:
+        case .stock, .stockTW, .etf, .commodity:
             return ticker
         default:
             return nil
