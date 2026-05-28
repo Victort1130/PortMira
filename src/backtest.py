@@ -19,20 +19,25 @@ def _get_ticker(asset: dict) -> Optional[str]:
         return CRYPTO_TICKER_MAP.get(ticker.lower(), f"{ticker.upper()}-USD")
     elif cat in ("stock", "stock_tw", "etf"):
         return ticker
+    elif cat == "commodity":
+        return ticker
     return None
 
 
 def calc_max_drawdown(values: list) -> float:
     if not values:
         return 0.0
-    peak = values[0]
+    peak = 0.0
     max_dd = 0.0
     for v in values:
+        if v <= 0:
+            continue  # skip zero/gap days
         if v > peak:
             peak = v
-        dd = (peak - v) / peak if peak > 0 else 0.0
-        if dd > max_dd:
-            max_dd = dd
+        if peak > 0:
+            dd = (peak - v) / peak
+            if dd > max_dd:
+                max_dd = dd
     return max_dd
 
 
@@ -87,14 +92,22 @@ def run_backtest(assets: list, start_date: str, end_date: str, base_currency: st
     if benchmark and benchmark in close.columns:
         bm_series = close[benchmark].dropna()
         if not bm_series.empty and portfolio_values:
-            scale = portfolio_values[0] / float(bm_series.iloc[0]) if float(bm_series.iloc[0]) != 0 else 1.0
-            bm_aligned = []
-            for dt in close.index:
-                if dt in bm_series.index and not pd.isna(bm_series[dt]):
-                    bm_aligned.append(float(bm_series[dt]) * scale)
-                else:
-                    bm_aligned.append(None)
-            benchmark_values = bm_aligned
+            # Find first portfolio value > 0 to avoid scaling benchmark to zero
+            first_valid_idx = next((i for i, v in enumerate(portfolio_values) if v > 0), None)
+            if first_valid_idx is not None:
+                first_valid_pv = portfolio_values[first_valid_idx]
+                first_valid_dt = close.index[first_valid_idx]
+                # Find the benchmark price at (or nearest after) first_valid_dt
+                bm_at_start = bm_series[bm_series.index >= first_valid_dt]
+                if not bm_at_start.empty and float(bm_at_start.iloc[0]) != 0:
+                    scale = first_valid_pv / float(bm_at_start.iloc[0])
+                    bm_aligned = []
+                    for dt in close.index:
+                        if dt in bm_series.index and not pd.isna(bm_series[dt]):
+                            bm_aligned.append(float(bm_series[dt]) * scale)
+                        else:
+                            bm_aligned.append(None)
+                    benchmark_values = bm_aligned
 
     # Metrics
     valid_values = [v for v in portfolio_values if v > 0]
@@ -104,7 +117,7 @@ def run_backtest(assets: list, start_date: str, end_date: str, base_currency: st
         end_dt = datetime.strptime(end_date, "%Y-%m-%d")
         years = (end_dt - start_dt).days / 365.25
         cagr = (valid_values[-1] / valid_values[0]) ** (1 / years) - 1 if years > 0 and valid_values[0] > 0 else 0.0
-        max_dd = calc_max_drawdown(valid_values)
+        max_dd = calc_max_drawdown(portfolio_values)
     else:
         total_return = cagr = max_dd = 0.0
 

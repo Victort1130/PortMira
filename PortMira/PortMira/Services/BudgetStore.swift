@@ -29,11 +29,15 @@ final class BudgetStore {
     }
 
     func save() {
-        do {
-            let data = try JSONEncoder().encode(BudgetData(budgets: budgets, expenses: expenses))
-            try data.write(to: fileURL, options: .atomic)
-        } catch {
-            lastError = "儲存失敗：\(error.localizedDescription)"
+        let data = BudgetData(budgets: budgets, expenses: expenses)
+        let url = fileURL
+        Task.detached {
+            do {
+                let encoded = try JSONEncoder().encode(data)
+                try encoded.write(to: url, options: .atomic)
+            } catch {
+                await MainActor.run { self.lastError = "儲存失敗：\(error.localizedDescription)" }
+            }
         }
     }
 
@@ -95,8 +99,10 @@ final class BudgetStore {
         let fmt = DateFormatter()
         fmt.dateFormat = "yyyy-MM-dd"
         let startStr = fmt.string(from: start)
+        let todayStr = fmt.string(from: Date())
         return expenses.filter { e in
             e.date >= startStr &&
+            e.date <= todayStr &&
             (budget.categoryName == "總計" || e.category.rawValue == budget.categoryName)
         }
     }

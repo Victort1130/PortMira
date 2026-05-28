@@ -85,11 +85,11 @@ def fetch_indicators_batch(assets: list) -> dict:
     Fetch technical indicators for all assets with tickers.
     Returns {asset_id: {"rsi": float, "rsi_ctx": str, "macd": float, "signal": float, "hist": float, "macd_ctx": str}}
     """
-    ticker_map = {}  # yf_ticker -> asset_id
+    ticker_map = {}  # yf_ticker -> list[asset_id]
     for a in assets:
         t = _to_yf_ticker(a)
         if t:
-            ticker_map[t] = a["id"]
+            ticker_map.setdefault(t, []).append(a["id"])
 
     if not ticker_map:
         return {}
@@ -127,13 +127,13 @@ def fetch_indicators_batch(assets: list) -> dict:
             return {}
 
     results = {}
-    for yf_ticker, asset_id in ticker_map.items():
+    for yf_ticker, asset_ids in ticker_map.items():
         if yf_ticker not in close_df.columns:
             continue
         prices = close_df[yf_ticker].dropna()
         rsi = calc_rsi(prices)
         macd, sig, hist = calc_macd(prices)
-        results[asset_id] = {
+        indicator_data = {
             "rsi": rsi,
             "rsi_ctx": rsi_context(rsi),
             "macd": macd,
@@ -141,4 +141,6 @@ def fetch_indicators_batch(assets: list) -> dict:
             "hist": hist,
             "macd_ctx": macd_context(macd, sig, hist),
         }
+        for asset_id in asset_ids:
+            results[asset_id] = indicator_data
     return results

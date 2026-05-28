@@ -36,6 +36,9 @@ struct HoldingsView: View {
             }
         }
         .navigationTitle("持倉明細")
+        .onChange(of: showIndicators) { _, newValue in
+            if newValue { Task { await loadIndicators() } }
+        }
         .toolbar {
             ToolbarItem {
                 Toggle(isOn: $showCagr) {
@@ -46,9 +49,6 @@ struct HoldingsView: View {
             }
             ToolbarItem {
                 Button {
-                    if indicators.isEmpty {
-                        Task { await loadIndicators() }
-                    }
                     showIndicators.toggle()
                 } label: {
                     Label("技術指標", systemImage: "chart.line.uptrend.xyaxis")

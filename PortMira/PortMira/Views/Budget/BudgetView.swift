@@ -46,9 +46,23 @@ struct BudgetView: View {
                 if budgetStore.expenses.isEmpty {
                     Text("尚無支出記錄").foregroundStyle(.secondary)
                 } else {
-                    ForEach(budgetStore.expenses.sorted { $0.date > $1.date }.prefix(20)) { e in
-                        ExpenseRow(expense: e)
+                    let sorted = budgetStore.expenses.sorted { $0.date > $1.date }
+                    List {
+                        ForEach(sorted.prefix(20)) { e in
+                            ExpenseRow(expense: e)
+                        }
+                        .onDelete { offsets in
+                            let idsToDelete = offsets.map { sorted[$0].id }
+                            let indicesToDelete = IndexSet(
+                                idsToDelete.compactMap { id in
+                                    budgetStore.expenses.firstIndex(where: { $0.id == id })
+                                }
+                            )
+                            budgetStore.deleteExpenses(at: indicesToDelete)
+                        }
                     }
+                    .listStyle(.plain)
+                    .frame(minHeight: 44, maxHeight: CGFloat(min(sorted.count, 20)) * 44)
                 }
             }
             .padding()

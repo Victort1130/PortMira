@@ -90,6 +90,11 @@ struct BacktestResultView: View {
         let date: String
         let value: Double
         let series: String
+
+        private static let df: DateFormatter = {
+            let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f
+        }()
+        var dateValue: Date { Self.df.date(from: date) ?? Date() }
     }
 
     var chartData: [ChartPoint] {
@@ -122,7 +127,7 @@ struct BacktestResultView: View {
             // Chart
             if !chartData.isEmpty {
                 Chart(chartData) { d in
-                    LineMark(x: .value("日期", d.date), y: .value("價值", d.value))
+                    LineMark(x: .value("日期", d.dateValue), y: .value("價值", d.value))
                         .foregroundStyle(by: .value("系列", d.series))
                 }
                 .frame(height: 250)

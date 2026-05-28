@@ -28,7 +28,8 @@ struct BudgetSettingsView: View {
                         }
                     }
                     .onDelete { offsets in
-                        offsets.forEach { i in budgetStore.deleteBudget(id: budgetStore.budgets[i].id) }
+                        let idsToDelete = offsets.map { budgetStore.budgets[$0].id }
+                        idsToDelete.forEach { budgetStore.deleteBudget(id: $0) }
                     }
                 }
 

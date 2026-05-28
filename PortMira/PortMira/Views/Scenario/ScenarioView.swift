@@ -205,6 +205,7 @@ struct ScenarioView: View {
 
     private func loadScenario(_ sc: Scenario?) {
         guard let sc else { return }
+        selectedEventId = nil
         scenarioName = sc.name
         let cats = sc.shocks.categories
         let fx   = sc.shocks.fx

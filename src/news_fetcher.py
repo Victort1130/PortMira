@@ -80,16 +80,33 @@ def fetch_stock_news(tickers: list, limit_per_ticker: int = 3) -> list:
         try:
             t = yf.Ticker(ticker)
             for item in (t.news or [])[:limit_per_ticker]:
+                # yfinance >=0.2.x wraps news inside {'id':..., 'content':{...}}
+                content = item.get("content", item)
+                title = content.get("title") or item.get("title", "")
+                link  = (
+                    content.get("canonicalUrl", {}).get("url")
+                    or item.get("link", "#")
+                    or "#"
+                )
+                source = (
+                    content.get("provider", {}).get("displayName")
+                    or item.get("publisher", "")
+                )
+                pub_date_raw = content.get("pubDate") or ""
+                if not pub_date_raw and item.get("providerPublishTime"):
+                    try:
+                        pub_date_raw = datetime.fromtimestamp(
+                            item["providerPublishTime"]
+                        ).strftime("%Y-%m-%d %H:%M")
+                    except Exception:
+                        pub_date_raw = ""
                 all_news.append({
-                    "title":     item.get("title", ""),
-                    "link":      item.get("link", "#"),
-                    "published": (
-                        datetime.fromtimestamp(item.get("providerPublishTime", 0)).strftime("%Y-%m-%d %H:%M")
-                        if item.get("providerPublishTime") else ""
-                    ),
-                    "source":    item.get("publisher", ""),
+                    "title":     title,
+                    "link":      link,
+                    "published": pub_date_raw,
+                    "source":    source,
                     "ticker":    ticker,
-                    "sentiment": sentiment_label(item.get("title", "")),
+                    "sentiment": sentiment_label(title),
                 })
         except Exception:
             continue

@@ -171,8 +171,8 @@ struct AllocationPieChart: View {
         var visible: [Slice] = []
         var othersValue: Double = 0
 
-        for (idx, slice) in sorted.enumerated() {
-            if idx < 9 && slice.value >= threshold {
+        for slice in sorted {
+            if slice.value >= threshold {
                 visible.append(slice)
             } else {
                 othersValue += slice.value
@@ -248,10 +248,13 @@ struct CommodityMarketView: View {
             if isLoading {
                 ProgressView().frame(maxWidth: .infinity)
             } else if prices.isEmpty {
-                Text("點擊重新整理載入行情")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
-                    .frame(maxWidth: .infinity)
+                Button(action: { Task { await loadPrices() } }) {
+                    Text("點擊重新整理載入行情")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
             } else {
                 LazyVGrid(
                     columns: [GridItem(.flexible()), GridItem(.flexible())],
@@ -269,7 +272,6 @@ struct CommodityMarketView: View {
     }
 
     private func loadPrices() async {
-        guard prices.isEmpty else { return }
         isLoading = true
         let tickers = watchlist.map(\.ticker)
         async let current = PriceService.fetchStockPrices(tickers: tickers)

@@ -53,10 +53,19 @@ actor BacktestEngine {
             }
         }
 
-        // Build aligned date index
+        // Build aligned date index — normalize all timestamps to midnight to avoid
+        // floating-point Set equality issues with near-equal timestamps (Bug 14)
+        let calendar = Calendar.current
         let allDates = historicalPrices.values.flatMap { $0.map(\.date) }
         guard !allDates.isEmpty else { throw BacktestError.noData }
-        let uniqueSortedDates = Array(Set(allDates)).sorted()
+        let normalizedDates = allDates.map { calendar.startOfDay(for: $0) }
+        let uniqueSortedDates = Array(Set(normalizedDates)).sorted()
+
+        // Rebuild historicalPrices with normalized dates so lookups work correctly
+        var normalizedPrices: [String: [(date: Date, close: Double)]] = [:]
+        for (ticker, entries) in historicalPrices {
+            normalizedPrices[ticker] = entries.map { (calendar.startOfDay(for: $0.date), $0.close) }
+        }
 
         let fmt = DateFormatter(); fmt.dateFormat = "yyyy-MM-dd"
 
@@ -66,7 +75,7 @@ actor BacktestEngine {
             var total = 0.0
             for (asset, ticker) in backTestAssets {
                 let qty = asset.quantity
-                if let prices = historicalPrices[ticker],
+                if let prices = normalizedPrices[ticker],
                    let entry = prices.last(where: { $0.date <= d }) {
                     total += qty * entry.close
                 }
@@ -74,19 +83,25 @@ actor BacktestEngine {
             portfolioValues.append(total)
         }
 
-        // Benchmark values
+        // Trim leading zero values before assets have data (Bug 5)
+        let firstNonZero = portfolioValues.firstIndex(where: { $0 > 0 }) ?? 0
+        let trimmedDates = Array(uniqueSortedDates[firstNonZero...])
+        let trimmedPortfolioValues = Array(portfolioValues[firstNonZero...])
+
+        // Benchmark values — align to trimmedDates[0] for correct scale (Bug 6)
         var benchmarkValues: [Double?]? = nil
-        if let bm = benchmark, let bmPrices = historicalPrices[bm] {
-            let firstValidPV = portfolioValues.first(where: { $0 > 0 }) ?? 1.0
-            let firstBM = bmPrices.first?.close ?? 1.0
+        if let bm = benchmark, let bmPrices = normalizedPrices[bm] {
+            let firstValidPV = trimmedPortfolioValues.first(where: { $0 > 0 }) ?? 1.0
+            let alignDate = trimmedDates.first ?? uniqueSortedDates.first ?? Date()
+            let firstBM = bmPrices.last(where: { $0.date <= alignDate })?.close ?? bmPrices.first?.close ?? 1.0
             let scale = firstBM > 0 ? firstValidPV / firstBM : 1.0
-            benchmarkValues = uniqueSortedDates.map { d in
+            benchmarkValues = trimmedDates.map { d in
                 bmPrices.last(where: { $0.date <= d }).map { $0.close * scale }
             }
         }
 
         // Metrics
-        let validPV = portfolioValues.filter { $0 > 0 }
+        let validPV = trimmedPortfolioValues.filter { $0 > 0 }
         var totalReturn = 0.0, cagr = 0.0, maxDD = 0.0
         if validPV.count >= 2 {
             totalReturn = (validPV.last! - validPV.first!) / validPV.first!
@@ -98,7 +113,7 @@ actor BacktestEngine {
         // Per-asset returns
         var assetReturns: [(name: String, ticker: String, returnPct: Double)] = []
         for (asset, ticker) in backTestAssets {
-            if let prices = historicalPrices[ticker], prices.count >= 2 {
+            if let prices = normalizedPrices[ticker], prices.count >= 2 {
                 let ret = (prices.last!.close - prices.first!.close) / prices.first!.close
                 assetReturns.append((asset.name, ticker, ret))
             }
@@ -106,8 +121,8 @@ actor BacktestEngine {
         assetReturns.sort { $0.returnPct > $1.returnPct }
 
         return BacktestResult(
-            dates: uniqueSortedDates.map { fmt.string(from: $0) },
-            portfolioValues: portfolioValues,
+            dates: trimmedDates.map { fmt.string(from: $0) },
+            portfolioValues: trimmedPortfolioValues,
             benchmarkValues: benchmarkValues,
             totalReturn: totalReturn,
             cagr: cagr,

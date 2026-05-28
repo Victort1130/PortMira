@@ -51,17 +51,24 @@ actor TechnicalIndicatorService {
 
     func calcRSI(_ closes: [Double], period: Int = 14) -> Double? {
         guard closes.count > period else { return nil }
-        var gains  = 0.0
-        var losses = 0.0
-        for i in 1...period {
-            let d = closes[closes.count - period - 1 + i] - closes[closes.count - period - 2 + i]
-            if d > 0 { gains += d } else { losses -= d }
+        var gains: [Double] = []
+        var losses: [Double] = []
+        for i in 1..<closes.count {
+            let diff = closes[i] - closes[i - 1]
+            gains.append(max(diff, 0))
+            losses.append(max(-diff, 0))
         }
-        let avgGain = gains  / Double(period)
-        let avgLoss = losses / Double(period)
-        guard avgLoss > 0 else { return 100.0 }
+        // Initial average
+        var avgGain = gains.prefix(period).reduce(0, +) / Double(period)
+        var avgLoss = losses.prefix(period).reduce(0, +) / Double(period)
+        // Wilder smoothing
+        for i in period..<gains.count {
+            avgGain = (avgGain * Double(period - 1) + gains[i]) / Double(period)
+            avgLoss = (avgLoss * Double(period - 1) + losses[i]) / Double(period)
+        }
+        guard avgLoss != 0 else { return 100.0 }
         let rs = avgGain / avgLoss
-        return (100.0 - 100.0 / (1.0 + rs)).rounded(toPlaces: 1)
+        return (100.0 - (100.0 / (1.0 + rs))).rounded(toPlaces: 1)
     }
 
     // MARK: MACD (fast=12, slow=26, signal=9)
@@ -72,20 +79,26 @@ actor TechnicalIndicatorService {
     ) -> (macd: Double?, signal: Double?, hist: Double?) {
         guard closes.count >= slow + signal else { return (nil, nil, nil) }
 
+        // Seed EMAs from the average of the first `span` bars, then iterate from index `span`
         func ema(_ data: [Double], span: Int) -> [Double] {
+            guard data.count >= span else { return [] }
             let k = 2.0 / Double(span + 1)
-            var result = [data[0]]
-            for i in 1..<data.count {
+            let seed = data.prefix(span).reduce(0, +) / Double(span)
+            var result = [seed]
+            for i in span..<data.count {
                 result.append(data[i] * k + result.last! * (1 - k))
             }
             return result
         }
 
-        let emaFast   = ema(closes, span: fast)
-        let emaSlow   = ema(closes, span: slow)
-        let macdLine  = zip(emaFast.suffix(emaSlow.count), emaSlow).map { $0 - $1 }
+        let emaFast  = ema(closes, span: fast)
+        let emaSlow  = ema(closes, span: slow)
+        // Align: emaFast has (count - fast + 1) elements seeded at index fast,
+        // emaSlow has (count - slow + 1) elements seeded at index slow.
+        // Both cover from their respective seed index to end; take the common tail.
+        let macdLine = zip(emaFast.suffix(emaSlow.count), emaSlow).map { $0 - $1 }
         let signalLine = ema(macdLine, span: signal)
-        let hist       = zip(macdLine.suffix(signalLine.count), signalLine).map { $0 - $1 }
+        let hist = zip(macdLine.suffix(signalLine.count), signalLine).map { $0 - $1 }
 
         return (
             macdLine.last?.rounded(toPlaces: 4),

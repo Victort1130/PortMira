@@ -163,6 +163,7 @@ with st.sidebar:
     st.markdown("---")
     if st.button("🔄 Refresh Prices", use_container_width=True):
         st.cache_data.clear()
+        st.session_state.pop("commodity_prices", None)
         st.rerun()
     st.markdown("---")
     st.caption("v0.2.0 · local-first")
@@ -479,9 +480,14 @@ with tab_edit:
             rec["id"] = f"asset_{len(asset_records)+1:03d}"
             asset_records.append(rec)
 
-        manual_rows   = edited_manual[edited_manual["name"].notna() & (edited_manual["name"] != "")]
-        missing_names = len(edited_manual) - len(manual_rows)
-        if missing_names > 0 and not edited_manual.dropna(how="all").empty:
+        manual_rows = edited_manual[edited_manual["name"].notna() & (edited_manual["name"] != "")]
+        # Only flag rows that have some meaningful data but are missing a name
+        _meaningful_manual = edited_manual.dropna(subset=["name", "quantity", "cost_per_unit"], how="all")
+        _missing_names = _meaningful_manual["name"].isna().sum() + (
+            (_meaningful_manual["name"] == "").sum()
+            if _meaningful_manual["name"].dtype == object else 0
+        )
+        if _missing_names > 0:
             st.warning("手動資產的「名稱」為必填欄位，請補齊後再儲存。")
             st.stop()
 
@@ -751,11 +757,11 @@ with tab_scenario:
                     for _cat, _shock in _event["shocks"]["categories"].items():
                         _sk = f"shock_{_cat}"
                         if _sk in ["shock_stock", "shock_stock_tw", "shock_etf", "shock_crypto", "shock_commodity", "shock_other"]:
-                            st.session_state[_sk] = int(_shock * 100)
+                            st.session_state[_sk] = int(round(_shock * 100))
                     for _cur, _shock in _event["shocks"]["fx"].items():
                         _fk = f"fx_{_cur}"
                         if _fk in ["fx_USD", "fx_EUR", "fx_JPY"]:
-                            st.session_state[_fk] = int(_shock * 100)
+                            st.session_state[_fk] = int(round(_shock * 100))
                 st.session_state["_applied_event_key"] = _selected_event_key
 
             if _selected_event_key:
@@ -782,17 +788,19 @@ with tab_scenario:
                     loaded_fx   = loaded_sc.get("shocks", {}).get("fx", {})
                     # Write to session_state when scenario changes so keyed sliders update
                     if selected_name != st.session_state.get("_applied_scenario_name", "__unset__"):
-                        st.session_state["shock_stock"]     = int(loaded_cat.get("stock",     0) * 100)
-                        st.session_state["shock_stock_tw"]  = int(loaded_cat.get("stock_tw",  0) * 100)
-                        st.session_state["shock_etf"]       = int(loaded_cat.get("etf",       0) * 100)
-                        st.session_state["shock_crypto"]    = int(loaded_cat.get("crypto",    0) * 100)
-                        st.session_state["shock_commodity"] = int(loaded_cat.get("commodity", 0) * 100)
-                        st.session_state["shock_other"]     = int(loaded_cat.get("other",     0) * 100)
-                        st.session_state["fx_USD"]          = int(loaded_fx.get("USD", 0) * 100)
-                        st.session_state["fx_EUR"]          = int(loaded_fx.get("EUR", 0) * 100)
-                        st.session_state["fx_JPY"]          = int(loaded_fx.get("JPY", 0) * 100)
+                        st.session_state["shock_stock"]     = int(round(loaded_cat.get("stock",     0) * 100))
+                        st.session_state["shock_stock_tw"]  = int(round(loaded_cat.get("stock_tw",  0) * 100))
+                        st.session_state["shock_etf"]       = int(round(loaded_cat.get("etf",       0) * 100))
+                        st.session_state["shock_crypto"]    = int(round(loaded_cat.get("crypto",    0) * 100))
+                        st.session_state["shock_commodity"] = int(round(loaded_cat.get("commodity", 0) * 100))
+                        st.session_state["shock_other"]     = int(round(loaded_cat.get("other",     0) * 100))
+                        st.session_state["fx_USD"]          = int(round(loaded_fx.get("USD", 0) * 100))
+                        st.session_state["fx_EUR"]          = int(round(loaded_fx.get("EUR", 0) * 100))
+                        st.session_state["fx_JPY"]          = int(round(loaded_fx.get("JPY", 0) * 100))
                         st.session_state["_applied_scenario_name"] = selected_name
-                        st.session_state["_applied_event_key"]     = "__unset__"
+                        # Mark the current event as already applied so the preset
+                        # block won't overwrite the just-loaded scenario on next rerun
+                        st.session_state["_applied_event_key"] = _selected_event_key
 
             st.caption("資產類別漲跌幅")
             shock_stock     = st.slider("股票 Stock",           -100, 100, int(loaded_cat.get("stock",     0)*100), step=1, format="%d%%", key="shock_stock")     / 100
@@ -1011,8 +1019,8 @@ with tab_budget:
                 _bgt_amount    = st.number_input("金額", min_value=1.0, value=10000.0, step=100.0, key="bgt_amount")
                 _bgt_currency  = st.selectbox("幣別", ["TWD", "USD", "EUR", "JPY", "GBP"], key="bgt_currency")
                 _bgt_period    = st.selectbox("週期", BUDGET_PERIODS, key="bgt_period")
-                _bgt_threshold = st.slider(
-                    "警示閾值", 0.1, 1.0, 0.6, 0.05, format="%.0f%%",
+                _bgt_threshold_int = st.slider(
+                    "警示閾值", 0, 100, 60, 5, format="%d%%",
                     key="bgt_threshold",
                     help="支出佔預算比例達此值時顯示警示",
                 )
@@ -1023,7 +1031,7 @@ with tab_budget:
                         "amount":          _bgt_amount,
                         "currency":        _bgt_currency,
                         "period":          _bgt_period,
-                        "alert_threshold": _bgt_threshold,
+                        "alert_threshold": _bgt_threshold_int / 100,
                     }
                     st.session_state.budgets.append(_new_bgt)
                     save_budgets(st.session_state.budgets)
