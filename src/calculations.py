@@ -1,4 +1,5 @@
 import pandas as pd
+from datetime import date
 from src.models import STOCK_CATEGORIES, CRYPTO_CATEGORIES
 from src.price_fetcher import (
     fetch_stock_prices,
@@ -120,6 +121,144 @@ def calc_net_worth(
         total_liabilities = float((liab["amount"] * liab["fx_rate"]).sum())
 
     return total_assets, total_liabilities, total_assets - total_liabilities
+
+
+def calc_asset_cagr(market_value: float, cost_basis: float, purchase_date_str) -> float | None:
+    """Annualized return (CAGR) for a single asset. Returns None if data is missing or invalid."""
+    if not purchase_date_str or cost_basis <= 0 or market_value <= 0:
+        return None
+    try:
+        if isinstance(purchase_date_str, date):
+            purchase = purchase_date_str
+        else:
+            purchase = date.fromisoformat(str(purchase_date_str))
+    except (ValueError, TypeError):
+        return None
+    years = (date.today() - purchase).days / 365.25
+    if years < 0.01:
+        return None
+    return (market_value / cost_basis) ** (1.0 / years) - 1.0
+
+
+def calc_portfolio_cagr(enriched_df: pd.DataFrame) -> float | None:
+    """Portfolio CAGR using earliest purchase_date and aggregate values.
+    Only includes assets that have purchase_date set.
+    """
+    if "purchase_date" not in enriched_df.columns:
+        return None
+    df = enriched_df[enriched_df["purchase_date"].notna() & (enriched_df["purchase_date"] != "")].copy()
+    if df.empty:
+        return None
+    try:
+        earliest = min(
+            date.fromisoformat(str(d)) if not isinstance(d, date) else d
+            for d in df["purchase_date"]
+        )
+    except (ValueError, TypeError):
+        return None
+    years = (date.today() - earliest).days / 365.25
+    if years < 0.01:
+        return None
+    total_mv = float(df["market_value"].sum())
+    total_cb = float(df["cost_basis"].sum())
+    if total_cb <= 0 or total_mv <= 0:
+        return None
+    return (total_mv / total_cb) ** (1.0 / years) - 1.0
+
+
+def add_cagr_column(enriched_df: pd.DataFrame) -> pd.DataFrame:
+    """Add per-asset cagr column to enriched_df if purchase_date is present."""
+    df = enriched_df.copy()
+    if "purchase_date" not in df.columns:
+        return df
+    df["cagr"] = df.apply(
+        lambda row: calc_asset_cagr(
+            float(row["market_value"]) if pd.notna(row.get("market_value")) else 0.0,
+            float(row["cost_basis"]) if pd.notna(row.get("cost_basis")) else 0.0,
+            row.get("purchase_date"),
+        ),
+        axis=1,
+    )
+    return df
+
+
+def calc_rebalance(enriched_df: pd.DataFrame) -> pd.DataFrame:
+    """Compute rebalancing actions based on target_pct column (values in 0–100 range).
+
+    Returns DataFrame sorted by absolute delta, with columns:
+    name, ticker, category, market_value, current_pct, target_pct,
+    delta_value, delta_units, action
+    """
+    if "target_pct" not in enriched_df.columns:
+        return pd.DataFrame()
+    df = enriched_df.copy()
+    df["target_pct"] = pd.to_numeric(df["target_pct"], errors="coerce")
+    df = df[df["target_pct"].notna() & (df["target_pct"] > 0)].copy()
+    if df.empty:
+        return pd.DataFrame()
+
+    total_value = float(enriched_df["market_value"].sum())
+    if total_value <= 0:
+        return pd.DataFrame()
+
+    df["current_pct"] = df["market_value"] / total_value * 100
+    df["target_value"] = total_value * df["target_pct"] / 100
+    df["delta_value"] = df["target_value"] - df["market_value"]
+
+    def _delta_units(row) -> float:
+        price_in_base = float(row.get("current_price", 0) or 0) * float(row.get("fx_rate", 1) or 1)
+        if price_in_base <= 0:
+            return float("nan")
+        return row["delta_value"] / price_in_base
+
+    df["delta_units"] = df.apply(_delta_units, axis=1)
+    df["action"] = df["delta_value"].apply(
+        lambda v: "買入 Buy" if v > 1 else ("賣出 Sell" if v < -1 else "持有 Hold")
+    )
+
+    cols = ["name", "ticker", "category", "market_value", "current_pct", "target_pct",
+            "delta_value", "delta_units", "action"]
+    return df[[c for c in cols if c in df.columns]].sort_values(
+        "delta_value", key=abs, ascending=False
+    ).reset_index(drop=True)
+
+
+def apply_scenario(
+    enriched_df: pd.DataFrame,
+    liabilities_df: pd.DataFrame | None,
+    fx_rates: dict[str, float],
+    category_shocks: dict[str, float],
+    fx_shocks: dict[str, float],
+) -> tuple[pd.DataFrame, float, float, float]:
+    """Apply price and FX shocks and return (scenario_df, total_assets, total_liabilities, net_worth).
+
+    category_shocks: {category: decimal_change} e.g. {"stock": -0.20}
+    fx_shocks: {currency: decimal_change} e.g. {"USD": 0.05} means USD strengthens 5% vs base
+    """
+    if liabilities_df is None:
+        liabilities_df = pd.DataFrame()
+
+    df = enriched_df.copy()
+
+    new_fx = {ccy: rate * (1.0 + fx_shocks.get(ccy, 0.0)) for ccy, rate in fx_rates.items()}
+
+    df["scenario_price"] = df.apply(
+        lambda row: float(row["current_price"]) * (1.0 + category_shocks.get(row["category"], 0.0)),
+        axis=1,
+    )
+    df["scenario_fx"] = df["currency"].apply(lambda c: new_fx.get(c, fx_rates.get(c, 1.0)))
+    df["scenario_value"] = df["quantity"] * df["scenario_price"] * df["scenario_fx"]
+
+    total_assets = float(df["scenario_value"].sum())
+
+    if liabilities_df.empty:
+        total_liabilities = 0.0
+    else:
+        liab = liabilities_df.copy()
+        liab["scenario_fx"] = liab["currency"].apply(lambda c: new_fx.get(c, fx_rates.get(c, 1.0)))
+        total_liabilities = float((liab["amount"] * liab["scenario_fx"]).sum())
+
+    return df, total_assets, total_liabilities, total_assets - total_liabilities
 
 
 def get_alerts(enriched_df: pd.DataFrame, threshold_pct: float) -> pd.DataFrame:

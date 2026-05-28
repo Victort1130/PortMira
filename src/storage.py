@@ -5,7 +5,7 @@ import pandas as pd
 from src.models import Asset
 
 DEFAULT_PATH = "data/portfolio.json"
-_EMPTY_PORTFOLIO = {"assets": [], "liabilities": [], "meta": {"last_updated": ""}}
+_EMPTY_PORTFOLIO = {"assets": [], "liabilities": [], "scenarios": [], "meta": {"last_updated": ""}}
 
 
 def load_portfolio(filepath=None):
@@ -38,6 +38,26 @@ def get_liabilities_df(portfolio):
     if not liabilities:
         return pd.DataFrame()
     return pd.DataFrame(liabilities)
+
+
+def get_scenarios(portfolio: dict) -> list:
+    return portfolio.get("scenarios", [])
+
+
+def save_scenario(portfolio: dict, scenario: dict, filepath: str = DEFAULT_PATH) -> None:
+    if "scenarios" not in portfolio:
+        portfolio["scenarios"] = []
+    ids = [s["id"] for s in portfolio["scenarios"]]
+    if scenario["id"] in ids:
+        portfolio["scenarios"][ids.index(scenario["id"])] = scenario
+    else:
+        portfolio["scenarios"].append(scenario)
+    save_portfolio(portfolio, filepath)
+
+
+def delete_scenario(portfolio: dict, scenario_id: str, filepath: str = DEFAULT_PATH) -> None:
+    portfolio["scenarios"] = [s for s in portfolio.get("scenarios", []) if s["id"] != scenario_id]
+    save_portfolio(portfolio, filepath)
 
 
 def save_portfolio(portfolio, filepath=DEFAULT_PATH):
