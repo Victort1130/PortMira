@@ -1,0 +1,50 @@
+import SwiftUI
+
+struct ExpenseFormView: View {
+    @Environment(BudgetStore.self) var budgetStore
+    @Environment(\.dismiss) var dismiss
+
+    @State private var date = Date()
+    @State private var category: ExpenseCategory = .food
+    @State private var amount: Double = 0
+    @State private var currency = "TWD"
+    @State private var note = ""
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                DatePicker("日期", selection: $date, displayedComponents: .date)
+                Picker("類別", selection: $category) {
+                    ForEach(ExpenseCategory.allCases) { cat in
+                        Label(cat.rawValue, systemImage: cat.icon).tag(cat)
+                    }
+                }
+                TextField("金額", value: $amount, format: .number)
+                Picker("幣別", selection: $currency) {
+                    ForEach(["TWD", "USD", "EUR", "JPY", "GBP"], id: \.self) { Text($0).tag($0) }
+                }
+                TextField("備註（選填）", text: $note)
+            }
+            .navigationTitle("新增支出")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("儲存") {
+                        let fmt = DateFormatter(); fmt.dateFormat = "yyyy-MM-dd"
+                        budgetStore.addExpense(Expense(
+                            id: "exp_\(UUID().uuidString.prefix(8))",
+                            date: fmt.string(from: date),
+                            category: category,
+                            amount: amount,
+                            currency: currency,
+                            note: note
+                        ))
+                        dismiss()
+                    }
+                    .disabled(amount <= 0)
+                }
+            }
+        }
+        .frame(minWidth: 320, minHeight: 300)
+    }
+}

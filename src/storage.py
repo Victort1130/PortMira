@@ -7,6 +7,9 @@ from src.models import Asset
 DEFAULT_PATH = "data/portfolio.json"
 _EMPTY_PORTFOLIO = {"assets": [], "liabilities": [], "scenarios": [], "meta": {"last_updated": ""}}
 
+EXPENSES_FILE = "data/expenses.json"
+BUDGETS_FILE = "data/budgets.json"
+
 
 def load_portfolio(filepath=None):
     """Read a portfolio JSON file and return its contents as a dict."""
@@ -66,6 +69,32 @@ def save_portfolio(portfolio, filepath=DEFAULT_PATH):
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(portfolio, f, ensure_ascii=False, indent=2)
     print(f"[storage] Portfolio saved to {filepath}")
+
+
+def load_expenses() -> list:
+    if not os.path.exists(EXPENSES_FILE):
+        return []
+    with open(EXPENSES_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def save_expenses(expenses: list) -> None:
+    os.makedirs(os.path.dirname(EXPENSES_FILE), exist_ok=True)
+    with open(EXPENSES_FILE, "w", encoding="utf-8") as f:
+        json.dump(expenses, f, ensure_ascii=False, indent=2)
+
+
+def load_budgets() -> list:
+    if not os.path.exists(BUDGETS_FILE):
+        return []
+    with open(BUDGETS_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def save_budgets(budgets: list) -> None:
+    os.makedirs(os.path.dirname(BUDGETS_FILE), exist_ok=True)
+    with open(BUDGETS_FILE, "w", encoding="utf-8") as f:
+        json.dump(budgets, f, ensure_ascii=False, indent=2)
 
 
 class Storage:

@@ -6,6 +6,8 @@ enum AppSection: String, CaseIterable, Identifiable {
     case rebalance = "再平衡"
     case scenario  = "情境分析"
     case edit      = "編輯組合"
+    case budget    = "預算追蹤"
+    case backtest  = "回測工具"
 
     var id: String { rawValue }
 
@@ -16,12 +18,15 @@ enum AppSection: String, CaseIterable, Identifiable {
         case .rebalance: return "scale.3d"
         case .scenario:  return "wand.and.stars"
         case .edit:      return "pencil"
+        case .budget:    return "creditcard"
+        case .backtest:  return "chart.xyaxis.line"
         }
     }
 }
 
 struct ContentView: View {
     @Environment(PortfolioStore.self) private var store
+    @Environment(BudgetStore.self) private var budgetStore
     @State private var selection: AppSection? = .dashboard
 
     var body: some View {
@@ -44,6 +49,11 @@ struct ContentView: View {
                     ScenarioView()
                 case .edit:
                     EditPortfolioView()
+                case .budget:
+                    BudgetView()
+                        .environment(budgetStore)
+                case .backtest:
+                    BacktestView()
                 }
             }
         }
@@ -53,4 +63,5 @@ struct ContentView: View {
 #Preview {
     ContentView()
         .environment(PortfolioStore())
+        .environment(BudgetStore())
 }

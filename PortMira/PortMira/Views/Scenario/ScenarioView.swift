@@ -16,6 +16,8 @@ struct ScenarioView: View {
     @State private var scenarioName:     String    = ""
     @State private var selectedScenario: Scenario? = nil
 
+    @State private var selectedEventId: String? = nil
+
     var categoryShocks: [String: Double] {[
         "stock": shockStock / 100, "stock_tw": shockStockTW / 100,
         "etf": shockETF / 100, "crypto": shockCrypto / 100, "other": shockOther / 100,
@@ -49,6 +51,54 @@ struct ScenarioView: View {
     private var controlsPanel: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+
+                // Historical event presets
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("歷史重大事件 Presets").font(.headline)
+                    Picker("歷史重大事件", selection: $selectedEventId) {
+                        Text("自訂").tag(Optional<String>.none)
+                        ForEach(historicalEvents) { event in
+                            Text(event.name).tag(Optional(event.id))
+                        }
+                    }
+                    .onChange(of: selectedEventId) { _, eventId in
+                        applyHistoricalEvent(id: eventId)
+                    }
+
+                    if let eventId = selectedEventId,
+                       let event = historicalEvents.first(where: { $0.id == eventId }) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(event.period)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text(event.description)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(.top, 2)
+
+                        DisclosureGroup("💡 避險建議") {
+                            VStack(alignment: .leading, spacing: 4) {
+                                ForEach(event.hedgingTips, id: \.self) { tip in
+                                    HStack(alignment: .top, spacing: 4) {
+                                        Text("•")
+                                        Text(tip)
+                                            .font(.caption)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(.top, 4)
+                        }
+                        .font(.subheadline)
+                    }
+                }
+
+                Divider()
+
                 if !store.portfolio.scenarios.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("已儲存情境").font(.headline)
@@ -131,6 +181,20 @@ struct ScenarioView: View {
     }
 
     // MARK: - Helpers
+
+    private func applyHistoricalEvent(id: String?) {
+        guard let id, let event = historicalEvents.first(where: { $0.id == id }) else { return }
+        let cats = event.categoryShocks
+        let fx   = event.fxShocks
+        shockStock   = (cats["stock"]    ?? 0) * 100
+        shockStockTW = (cats["stock_tw"] ?? 0) * 100
+        shockETF     = (cats["etf"]      ?? 0) * 100
+        shockCrypto  = (cats["crypto"]   ?? 0) * 100
+        shockOther   = (cats["other"]    ?? 0) * 100
+        fxUSD = (fx["USD"] ?? 0) * 100
+        fxEUR = (fx["EUR"] ?? 0) * 100
+        fxJPY = (fx["JPY"] ?? 0) * 100
+    }
 
     private func loadScenario(_ sc: Scenario?) {
         guard let sc else { return }

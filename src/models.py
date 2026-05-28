@@ -1,4 +1,4 @@
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from datetime import datetime
 from typing import Optional
 
@@ -24,6 +24,30 @@ CRYPTO_CATEGORIES = frozenset({"crypto"})
 CASH_CATEGORIES = frozenset({"cash"})
 MANUAL_CATEGORIES = frozenset({"other"})
 AUTO_PRICE_CATEGORIES = STOCK_CATEGORIES | CRYPTO_CATEGORIES
+
+
+EXPENSE_CATEGORIES = ["餐飲", "交通", "訂閱服務", "娛樂", "投資支出", "醫療", "購物", "其他"]
+BUDGET_PERIODS = ["月", "雙週", "週"]
+
+
+@dataclass
+class Expense:
+    id: str
+    date: str  # "YYYY-MM-DD"
+    category: str
+    amount: float
+    currency: str
+    note: str = ""
+
+
+@dataclass
+class Budget:
+    id: str
+    category: str  # expense category or "總計"
+    amount: float
+    currency: str
+    period: str  # "月", "雙週", "週"
+    alert_threshold: float = 0.6
 
 
 if __name__ == "__main__":

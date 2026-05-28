@@ -197,8 +197,8 @@ portfolio          = load_portfolio()
 raw_liabilities_df = get_liabilities_df(portfolio)
 
 # ── Tabs ───────────────────────────────────────────────────────────────────────
-tab_dashboard, tab_edit, tab_holdings, tab_rebalance, tab_scenario = st.tabs([
-    "📊 總覽", "✏️ 編輯組合", "📋 持倉明細", "⚖️ 再平衡", "🔮 情境分析",
+tab_dashboard, tab_edit, tab_holdings, tab_rebalance, tab_scenario, tab_budget, tab_backtest = st.tabs([
+    "📊 總覽", "✏️ 編輯組合", "📋 持倉明細", "⚖️ 再平衡", "🔮 情境分析", "💰 預算追蹤", "📈 回測工具",
 ])
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -646,6 +646,35 @@ with tab_scenario:
         ctrl_col, result_col = st.columns([1, 1.6])
 
         with ctrl_col:
+            from src.historical_events import HISTORICAL_EVENTS
+
+            st.subheader("📚 歷史重大事件")
+            _event_options = {v["name"]: k for k, v in HISTORICAL_EVENTS.items()}
+            _selected_event_name = st.selectbox("選擇歷史重大事件", list(_event_options.keys()), key="selected_historical_event")
+            _selected_event_key  = _event_options[_selected_event_name]
+            _event = HISTORICAL_EVENTS[_selected_event_key]
+
+            # Only apply preset values when the selection CHANGES (not on every rerun)
+            if _selected_event_key != st.session_state.get("_applied_event_key", "__unset__"):
+                if _selected_event_key:
+                    for _cat, _shock in _event["shocks"]["categories"].items():
+                        _sk = f"shock_{_cat}"
+                        if _sk in ["shock_stock", "shock_stock_tw", "shock_etf", "shock_crypto", "shock_other"]:
+                            st.session_state[_sk] = int(_shock * 100)
+                    for _cur, _shock in _event["shocks"]["fx"].items():
+                        _fk = f"fx_{_cur}"
+                        if _fk in ["fx_USD", "fx_EUR", "fx_JPY"]:
+                            st.session_state[_fk] = int(_shock * 100)
+                st.session_state["_applied_event_key"] = _selected_event_key
+
+            if _selected_event_key:
+                st.caption(f"📅 {_event['period']} — {_event['description']}")
+                with st.expander("💡 避險建議", expanded=True):
+                    for _tip in _event["hedging"]:
+                        st.markdown(f"• {_tip}")
+
+            st.divider()
+
             st.subheader("設定情境變數")
 
             loaded_cat: dict  = {}
@@ -660,18 +689,30 @@ with tab_scenario:
                     selected_id = loaded_sc["id"]
                     loaded_cat  = loaded_sc.get("shocks", {}).get("categories", {})
                     loaded_fx   = loaded_sc.get("shocks", {}).get("fx", {})
+                    # Write to session_state when scenario changes so keyed sliders update
+                    if selected_name != st.session_state.get("_applied_scenario_name", "__unset__"):
+                        st.session_state["shock_stock"]    = int(loaded_cat.get("stock",    0) * 100)
+                        st.session_state["shock_stock_tw"] = int(loaded_cat.get("stock_tw", 0) * 100)
+                        st.session_state["shock_etf"]      = int(loaded_cat.get("etf",      0) * 100)
+                        st.session_state["shock_crypto"]   = int(loaded_cat.get("crypto",   0) * 100)
+                        st.session_state["shock_other"]    = int(loaded_cat.get("other",    0) * 100)
+                        st.session_state["fx_USD"]         = int(loaded_fx.get("USD", 0) * 100)
+                        st.session_state["fx_EUR"]         = int(loaded_fx.get("EUR", 0) * 100)
+                        st.session_state["fx_JPY"]         = int(loaded_fx.get("JPY", 0) * 100)
+                        st.session_state["_applied_scenario_name"] = selected_name
+                        st.session_state["_applied_event_key"]     = "__unset__"
 
             st.caption("資產類別漲跌幅")
-            shock_stock    = st.slider("股票 Stock",      -100, 100, int(loaded_cat.get("stock",    0)*100), step=1, format="%d%%") / 100
-            shock_stock_tw = st.slider("台股 TW Stock",   -100, 100, int(loaded_cat.get("stock_tw", 0)*100), step=1, format="%d%%") / 100
-            shock_etf      = st.slider("ETF",             -100, 100, int(loaded_cat.get("etf",      0)*100), step=1, format="%d%%") / 100
-            shock_crypto   = st.slider("加密貨幣 Crypto", -100, 100, int(loaded_cat.get("crypto",   0)*100), step=1, format="%d%%") / 100
-            shock_other    = st.slider("其他 Other",      -100, 100, int(loaded_cat.get("other",    0)*100), step=1, format="%d%%") / 100
+            shock_stock    = st.slider("股票 Stock",      -100, 100, int(loaded_cat.get("stock",    0)*100), step=1, format="%d%%", key="shock_stock")    / 100
+            shock_stock_tw = st.slider("台股 TW Stock",   -100, 100, int(loaded_cat.get("stock_tw", 0)*100), step=1, format="%d%%", key="shock_stock_tw") / 100
+            shock_etf      = st.slider("ETF",             -100, 100, int(loaded_cat.get("etf",      0)*100), step=1, format="%d%%", key="shock_etf")      / 100
+            shock_crypto   = st.slider("加密貨幣 Crypto", -100, 100, int(loaded_cat.get("crypto",   0)*100), step=1, format="%d%%", key="shock_crypto")   / 100
+            shock_other    = st.slider("其他 Other",      -100, 100, int(loaded_cat.get("other",    0)*100), step=1, format="%d%%", key="shock_other")    / 100
 
             st.caption("匯率變動（正 = 外幣升值）")
-            fx_usd = st.slider("USD", -30, 30, int(loaded_fx.get("USD", 0)*100), step=1, format="%d%%") / 100
-            fx_eur = st.slider("EUR", -30, 30, int(loaded_fx.get("EUR", 0)*100), step=1, format="%d%%") / 100
-            fx_jpy = st.slider("JPY", -30, 30, int(loaded_fx.get("JPY", 0)*100), step=1, format="%d%%") / 100
+            fx_usd = st.slider("USD", -30, 30, int(loaded_fx.get("USD", 0)*100), step=1, format="%d%%", key="fx_USD") / 100
+            fx_eur = st.slider("EUR", -30, 30, int(loaded_fx.get("EUR", 0)*100), step=1, format="%d%%", key="fx_EUR") / 100
+            fx_jpy = st.slider("JPY", -30, 30, int(loaded_fx.get("JPY", 0)*100), step=1, format="%d%%", key="fx_JPY") / 100
 
             st.markdown("---")
             sc_name_input = st.text_input("情境名稱", placeholder="例：熊市、升息循環")
@@ -765,3 +806,219 @@ with tab_scenario:
                 use_container_width=True,
                 hide_index=True,
             )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 6 — 預算追蹤
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_budget:
+    from src.storage import load_expenses, save_expenses, load_budgets, save_budgets
+    from src.budget_calc import calc_budget_status, get_budget_alerts, generate_expense_id, generate_budget_id
+    from src.models import EXPENSE_CATEGORIES, BUDGET_PERIODS
+    import datetime as _dt
+
+    if "expenses" not in st.session_state:
+        st.session_state.expenses = load_expenses()
+    if "budgets" not in st.session_state:
+        st.session_state.budgets = load_budgets()
+
+    _expenses = st.session_state.expenses
+    _budgets  = st.session_state.budgets
+    _fx_rates_bgt = fx_rates if fx_rates else {}
+    _base_cur_bgt = display_currency
+
+    _statuses = calc_budget_status(_expenses, _budgets, _base_cur_bgt, _fx_rates_bgt) if _budgets else []
+    _alerts   = get_budget_alerts(_statuses)
+
+    if _alerts:
+        _alert_names = "、".join(s["category"] for s in _alerts)
+        st.warning(f"⚠️ 預算警示：{_alert_names} 已超過設定閾值，請注意支出！")
+
+    _col_main, _col_form = st.columns([2, 1])
+
+    with _col_main:
+        st.subheader("📊 預算概覽")
+        if not _budgets:
+            st.info("尚未設定預算，請在右側「設定預算」新增")
+        else:
+            for _s in _statuses:
+                _pct  = min(_s["pct_used"], 1.0)
+                _color = "🟢" if _s["pct_used"] < 0.6 else ("🟡" if _s["pct_used"] < 0.85 else "🔴")
+                st.markdown(f"**{_color} {_s['category']}**（{_s['period']}）")
+                st.progress(_pct)
+                st.caption(
+                    f"已花 {_s['spent_amount']:,.0f} / 預算 {_s['budget_amount']:,.0f} {_base_cur_bgt}"
+                    f"（{_s['pct_used']*100:.1f}%）"
+                )
+
+        st.divider()
+        st.subheader("📋 支出明細")
+        _cat_filter    = st.selectbox("篩選類別", ["全部"] + EXPENSE_CATEGORIES, key="expense_cat_filter")
+        _filtered_exp  = [e for e in _expenses if _cat_filter == "全部" or e["category"] == _cat_filter]
+        _filtered_sort = sorted(_filtered_exp, key=lambda x: x["date"], reverse=True)[:30]
+
+        if _filtered_sort:
+            _df_exp = pd.DataFrame(_filtered_sort)[["date", "category", "amount", "currency", "note"]]
+            _df_exp.columns = ["日期", "類別", "金額", "幣別", "備註"]
+            st.dataframe(_df_exp, use_container_width=True, hide_index=True)
+        else:
+            st.info("尚無支出記錄")
+
+        if _filtered_sort:
+            if st.button("🗑️ 刪除最後一筆支出", key="del_last_expense"):
+                _last_id = _filtered_sort[0]["id"]
+                st.session_state.expenses = [e for e in _expenses if e["id"] != _last_id]
+                save_expenses(st.session_state.expenses)
+                st.rerun()
+
+    with _col_form:
+        st.subheader("➕ 新增支出")
+        with st.form("add_expense_form", clear_on_submit=True):
+            _exp_date     = st.date_input("日期", value=_dt.date.today(), key="exp_date")
+            _exp_cat      = st.selectbox("類別", EXPENSE_CATEGORIES, key="exp_cat")
+            _exp_amount   = st.number_input("金額", min_value=0.01, value=100.0, step=1.0, key="exp_amount")
+            _exp_currency = st.selectbox("幣別", ["TWD", "USD", "EUR", "JPY", "GBP"], key="exp_currency")
+            _exp_note     = st.text_input("備註（選填）", key="exp_note")
+            if st.form_submit_button("新增支出"):
+                _new_exp = {
+                    "id":       generate_expense_id(),
+                    "date":     _exp_date.isoformat(),
+                    "category": _exp_cat,
+                    "amount":   _exp_amount,
+                    "currency": _exp_currency,
+                    "note":     _exp_note,
+                }
+                st.session_state.expenses.append(_new_exp)
+                save_expenses(st.session_state.expenses)
+                st.success("已新增支出！")
+                st.rerun()
+
+        st.divider()
+        with st.expander("⚙️ 設定預算", expanded=len(_budgets) == 0):
+            if _budgets:
+                st.markdown("**現有預算**")
+                for _b in _budgets:
+                    _cb, _cdel = st.columns([3, 1])
+                    with _cb:
+                        st.caption(
+                            f"{_b['category']} | {_b['amount']:,.0f} {_b['currency']} / {_b['period']}"
+                            f" | 警示 {_b.get('alert_threshold', 0.6)*100:.0f}%"
+                        )
+                    with _cdel:
+                        if st.button("✕", key=f"del_bgt_{_b['id']}"):
+                            st.session_state.budgets = [x for x in _budgets if x["id"] != _b["id"]]
+                            save_budgets(st.session_state.budgets)
+                            st.rerun()
+
+            st.markdown("**新增預算**")
+            with st.form("add_budget_form", clear_on_submit=True):
+                _bgt_cat       = st.selectbox("類別", ["總計"] + EXPENSE_CATEGORIES, key="bgt_cat")
+                _bgt_amount    = st.number_input("金額", min_value=1.0, value=10000.0, step=100.0, key="bgt_amount")
+                _bgt_currency  = st.selectbox("幣別", ["TWD", "USD", "EUR", "JPY", "GBP"], key="bgt_currency")
+                _bgt_period    = st.selectbox("週期", BUDGET_PERIODS, key="bgt_period")
+                _bgt_threshold = st.slider(
+                    "警示閾值", 0.1, 1.0, 0.6, 0.05, format="%.0f%%",
+                    key="bgt_threshold",
+                    help="支出佔預算比例達此值時顯示警示",
+                )
+                if st.form_submit_button("儲存預算"):
+                    _new_bgt = {
+                        "id":              generate_budget_id(),
+                        "category":        _bgt_cat,
+                        "amount":          _bgt_amount,
+                        "currency":        _bgt_currency,
+                        "period":          _bgt_period,
+                        "alert_threshold": _bgt_threshold,
+                    }
+                    st.session_state.budgets.append(_new_bgt)
+                    save_budgets(st.session_state.budgets)
+                    st.success("預算已儲存！")
+                    st.rerun()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 7 — 回測工具
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_backtest:
+    from src.backtest import run_backtest
+    import datetime as _dt2
+
+    st.subheader("📈 投資組合回測")
+    st.info("ℹ️ 僅含有代碼的資產（股票、ETF、加密貨幣）會納入計算，現金與其他類別略過")
+
+    _bt_ctrl, _bt_result = st.columns([1, 2])
+
+    with _bt_ctrl:
+        _default_start = _dt2.date.today().replace(year=_dt2.date.today().year - 3)
+        _bt_start = st.date_input("開始日期", value=_default_start, key="bt_start_date")
+        _bt_end   = st.date_input("結束日期",  value=_dt2.date.today(), key="bt_end_date")
+        _bt_bm_label = st.selectbox(
+            "基準指數",
+            ["SPY（S&P 500）", "QQQ（NASDAQ 100）", "0050.TW（台股50）", "不設基準"],
+            key="bt_benchmark",
+        )
+        _benchmark_map = {
+            "SPY（S&P 500）":  "SPY",
+            "QQQ（NASDAQ 100）": "QQQ",
+            "0050.TW（台股50）": "0050.TW",
+            "不設基準": None,
+        }
+        _bt_bm = _benchmark_map[_bt_bm_label]
+
+        if st.button("▶ 執行回測", key="run_backtest_btn", use_container_width=True):
+            _bt_portfolio = load_portfolio()
+            _bt_assets    = _bt_portfolio.get("assets", [])
+            with st.spinner("正在下載歷史資料..."):
+                _bt_result_data = run_backtest(
+                    _bt_assets,
+                    _bt_start.isoformat(),
+                    _bt_end.isoformat(),
+                    base_currency=display_currency,
+                    benchmark=_bt_bm,
+                )
+            st.session_state["backtest_result"] = _bt_result_data
+
+    with _bt_result:
+        _bt_res = st.session_state.get("backtest_result")
+        if _bt_res is None:
+            st.markdown("← 設定日期範圍後點擊「執行回測」")
+        elif "error" in _bt_res:
+            st.error(_bt_res["error"])
+        else:
+            _m1, _m2, _m3 = st.columns(3)
+            _m1.metric("總報酬率",         f"{_bt_res['total_return']*100:.1f}%")
+            _m2.metric("年化報酬率 (CAGR)", f"{_bt_res['cagr']*100:.1f}%")
+            _m3.metric("最大回撤",          f"-{_bt_res['max_drawdown']*100:.1f}%")
+
+            if _bt_res.get("skipped"):
+                st.caption(f"略過資產：{', '.join(_bt_res['skipped'])}")
+
+            _bt_dates = _bt_res["dates"]
+            _bt_pv    = _bt_res["portfolio_values"]
+            _bt_fig   = go.Figure()
+            _bt_fig.add_trace(go.Scatter(
+                x=_bt_dates, y=_bt_pv, mode="lines", name="我的投資組合",
+                line=dict(color="#6C63FF", width=2),
+            ))
+            if _bt_res.get("benchmark_values"):
+                _bt_fig.add_trace(go.Scatter(
+                    x=_bt_dates, y=_bt_res["benchmark_values"], mode="lines",
+                    name=_bt_res.get("benchmark", "基準"),
+                    line=dict(color="#FF6B6B", width=1.5, dash="dash"),
+                ))
+            _bt_fig.update_layout(
+                xaxis_title="日期",
+                yaxis_title=f"價值（{display_currency}）",
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(0,0,0,0)",
+                margin=dict(l=0, r=0, t=30, b=0),
+                height=350,
+            )
+            st.plotly_chart(_bt_fig, use_container_width=True)
+
+            if _bt_res.get("asset_returns"):
+                _df_ar = pd.DataFrame(_bt_res["asset_returns"])
+                _df_ar["return"] = _df_ar["return"].map(lambda x: f"{x*100:.1f}%")
+                _df_ar.columns = ["資產名稱", "代碼", "區間報酬率"]
+                st.dataframe(_df_ar, use_container_width=True, hide_index=True)
