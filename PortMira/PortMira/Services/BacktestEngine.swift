@@ -12,14 +12,15 @@ struct BacktestResult {
     let benchmark: String?
 }
 
-private let cryptoTickerMap: [String: String] = [
-    "bitcoin": "BTC-USD", "ethereum": "ETH-USD", "binancecoin": "BNB-USD",
-    "cardano": "ADA-USD", "solana": "SOL-USD", "ripple": "XRP-USD",
-    "polkadot": "DOT-USD", "dogecoin": "DOGE-USD", "avalanche-2": "AVAX-USD",
-    "chainlink": "LINK-USD", "litecoin": "LTC-USD", "stellar": "XLM-USD"
-]
-
 actor BacktestEngine {
+
+    private let cryptoTickerMap: [String: String] = [
+        "bitcoin": "BTC-USD", "ethereum": "ETH-USD", "binancecoin": "BNB-USD",
+        "cardano": "ADA-USD", "solana": "SOL-USD", "ripple": "XRP-USD",
+        "polkadot": "DOT-USD", "dogecoin": "DOGE-USD", "avalanche-2": "AVAX-USD",
+        "chainlink": "LINK-USD", "litecoin": "LTC-USD", "stellar": "XLM-USD"
+    ]
+
     func run(assets: [Asset], startDate: Date, endDate: Date, benchmark: String?) async throws -> BacktestResult {
         var backTestAssets: [(asset: Asset, ticker: String)] = []
         var skipped: [String] = []
@@ -137,7 +138,9 @@ actor BacktestEngine {
         guard let ticker = asset.ticker, !ticker.isEmpty else { return nil }
         switch asset.category {
         case .crypto:
-            return cryptoTickerMap[ticker.lowercased()] ?? "\(ticker.uppercased())-USD"
+            let upper = ticker.uppercased()
+            if upper.hasSuffix("-USD") || upper.hasSuffix("-USDT") { return upper }
+            return cryptoTickerMap[ticker.lowercased()] ?? "\(upper)-USD"
         case .stock, .stockTW, .etf, .commodity:
             return ticker
         default:

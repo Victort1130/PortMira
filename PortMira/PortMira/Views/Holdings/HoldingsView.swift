@@ -111,10 +111,12 @@ struct HoldingsView: View {
         }
     }
 
+    @MainActor
     private func loadIndicators() async {
         isLoadingIndicators = true
+        let assets = store.portfolio.assets   // snapshot on MainActor before suspending
         let svc = TechnicalIndicatorService()
-        indicators = await svc.fetchAll(assets: store.portfolio.assets)
+        indicators = await svc.fetchAll(assets: assets)
         isLoadingIndicators = false
     }
 }
@@ -214,22 +216,24 @@ private struct AssetsTableWithCagr: View {
             TableColumn("損益%") { ea in
                 plPctText(ea.unrealizedPLPct)
             }.width(80)
-            TableColumn("日變動%") { ea in
-                plPctText(ea.dailyChangePct)
-            }.width(80)
-            TableColumn("年化報酬 CAGR") { ea in
-                plPctText(ea.cagr)
-            }.width(120)
-            TableColumn("K 線") { ea in
-                Button {
-                    selectedAsset = ea.asset
-                } label: {
-                    Image(systemName: "chart.candlestick")
-                }
-                .buttonStyle(.borderless)
-                .disabled(ea.ticker == nil || ea.ticker!.isEmpty)
-                .help("查看 K 線圖")
-            }.width(50)
+            Group {
+                TableColumn("日變動%") { (ea: EnrichedAsset) in
+                    plPctText(ea.dailyChangePct)
+                }.width(80)
+                TableColumn("年化報酬 CAGR") { (ea: EnrichedAsset) in
+                    plPctText(ea.cagr)
+                }.width(120)
+                TableColumn("K 線") { (ea: EnrichedAsset) in
+                    Button {
+                        selectedAsset = ea.asset
+                    } label: {
+                        Image(systemName: "chart.candlestick")
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(ea.ticker == nil || ea.ticker!.isEmpty)
+                    .help("查看 K 線圖")
+                }.width(50)
+            }
         }
     }
 }

@@ -8,6 +8,7 @@ enum AppSection: String, CaseIterable, Identifiable {
     case edit      = "編輯組合"
     case budget    = "預算追蹤"
     case backtest  = "回測工具"
+    case news      = "財經新聞"
 
     var id: String { rawValue }
 
@@ -20,6 +21,7 @@ enum AppSection: String, CaseIterable, Identifiable {
         case .edit:      return "pencil"
         case .budget:    return "creditcard"
         case .backtest:  return "chart.xyaxis.line"
+        case .news:      return "newspaper"
         }
     }
 }
@@ -54,6 +56,8 @@ struct ContentView: View {
                         .environment(budgetStore)
                 case .backtest:
                     BacktestView()
+                case .news:
+                    NewsView()
                 }
             }
         }

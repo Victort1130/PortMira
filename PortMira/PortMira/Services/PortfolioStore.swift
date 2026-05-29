@@ -12,8 +12,14 @@ class PortfolioStore {
     var lastError:      String?        = nil
 
     var baseCurrency: String = UserDefaults.standard.string(forKey: "baseCurrency") ?? "TWD" {
-        didSet { UserDefaults.standard.set(baseCurrency, forKey: "baseCurrency") }
+        didSet {
+            UserDefaults.standard.set(baseCurrency, forKey: "baseCurrency")
+            Task { await reEnrichForCurrency() }
+        }
     }
+
+    private var cachedPrices:     [String: Double] = [:]
+    private var cachedPrevCloses: [String: Double] = [:]
 
     // MARK: - Computed
 
@@ -81,16 +87,10 @@ class PortfolioStore {
         defer { isRefreshing = false }
 
         let (prices, prevCloses) = await PriceService.fetchAll(assets: portfolio.assets)
+        cachedPrices     = prices
+        cachedPrevCloses = prevCloses
 
-        let currencies = Set(
-            portfolio.assets.map { $0.currency.rawValue } +
-            portfolio.liabilities.map { $0.currency.rawValue }
-        )
-        let fx = await PriceService.fetchFXRates(
-            currencies: Array(currencies),
-            base: baseCurrency
-        )
-
+        let fx = await fetchFX()
         fxRates        = fx
         enrichedAssets = CalculationsEngine.enrich(
             assets:       portfolio.assets,
@@ -98,6 +98,31 @@ class PortfolioStore {
             prevCloses:   prevCloses,
             fxRates:      fx,
             baseCurrency: baseCurrency
+        )
+    }
+
+    // Re-enrich with existing prices after currency switch (no new network price fetch needed)
+    private func reEnrichForCurrency() async {
+        guard !cachedPrices.isEmpty else { return }
+        let fx = await fetchFX()
+        fxRates        = fx
+        enrichedAssets = CalculationsEngine.enrich(
+            assets:       portfolio.assets,
+            prices:       cachedPrices,
+            prevCloses:   cachedPrevCloses,
+            fxRates:      fx,
+            baseCurrency: baseCurrency
+        )
+    }
+
+    private func fetchFX() async -> [String: Double] {
+        let currencies = Set(
+            portfolio.assets.map { $0.currency.rawValue } +
+            portfolio.liabilities.map { $0.currency.rawValue }
+        )
+        return await PriceService.fetchFXRates(
+            currencies: Array(currencies),
+            base: baseCurrency
         )
     }
 

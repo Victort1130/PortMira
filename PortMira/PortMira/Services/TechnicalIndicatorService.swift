@@ -68,7 +68,8 @@ actor TechnicalIndicatorService {
         }
         guard avgLoss != 0 else { return 100.0 }
         let rs = avgGain / avgLoss
-        return (100.0 - (100.0 / (1.0 + rs))).rounded(toPlaces: 1)
+        let raw = 100.0 - (100.0 / (1.0 + rs))
+        return (raw * 10).rounded() / 10
     }
 
     // MARK: MACD (fast=12, slow=26, signal=9)
@@ -81,12 +82,13 @@ actor TechnicalIndicatorService {
 
         // Seed EMAs from the average of the first `span` bars, then iterate from index `span`
         func ema(_ data: [Double], span: Int) -> [Double] {
-            guard data.count >= span else { return [] }
+            guard data.count >= span, span > 0 else { return [] }
             let k = 2.0 / Double(span + 1)
             let seed = data.prefix(span).reduce(0, +) / Double(span)
             var result = [seed]
             for i in span..<data.count {
-                result.append(data[i] * k + result.last! * (1 - k))
+                let prev = result[result.count - 1]
+                result.append(data[i] * k + prev * (1 - k))
             }
             return result
         }
@@ -96,14 +98,16 @@ actor TechnicalIndicatorService {
         // Align: emaFast has (count - fast + 1) elements seeded at index fast,
         // emaSlow has (count - slow + 1) elements seeded at index slow.
         // Both cover from their respective seed index to end; take the common tail.
-        let macdLine = zip(emaFast.suffix(emaSlow.count), emaSlow).map { $0 - $1 }
+        let macdLine   = zip(emaFast.suffix(emaSlow.count), emaSlow).map { $0 - $1 }
         let signalLine = ema(macdLine, span: signal)
-        let hist = zip(macdLine.suffix(signalLine.count), signalLine).map { $0 - $1 }
+        let hist       = zip(macdLine.suffix(signalLine.count), signalLine).map { $0 - $1 }
 
+        // Inline rounding (× 10000 → round → ÷ 10000) avoids a helper that Swift 6
+        // would infer as @MainActor when declared private/fileprivate at file scope.
         return (
-            macdLine.last?.rounded(toPlaces: 4),
-            signalLine.last?.rounded(toPlaces: 4),
-            hist.last?.rounded(toPlaces: 4)
+            macdLine.last.map   { ($0 * 10000).rounded() / 10000 },
+            signalLine.last.map { ($0 * 10000).rounded() / 10000 },
+            hist.last.map       { ($0 * 10000).rounded() / 10000 }
         )
     }
 
@@ -145,8 +149,8 @@ actor TechnicalIndicatorService {
                           !closes.isEmpty
                     else { return nil }
 
-                    let rsi                    = self.calcRSI(closes)
-                    let (macd, sig, hist)      = self.calcMACD(closes)
+                    let rsi               = self.calcRSI(closes)
+                    let (macd, sig, hist) = self.calcMACD(closes)
                     return IndicatorResult(
                         id:          asset.id,
                         name:        asset.name,
@@ -180,14 +184,5 @@ actor TechnicalIndicatorService {
             "dogecoin": "DOGE-USD",
         ]
         return map[id.lowercased()] ?? "\(id.uppercased())-USD"
-    }
-}
-
-// MARK: - Double rounding helper
-
-private extension Double {
-    func rounded(toPlaces places: Int) -> Double {
-        let d = pow(10.0, Double(places))
-        return (self * d).rounded() / d
     }
 }

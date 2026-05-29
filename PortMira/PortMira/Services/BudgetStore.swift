@@ -29,14 +29,13 @@ final class BudgetStore {
     }
 
     func save() {
-        let data = BudgetData(budgets: budgets, expenses: expenses)
+        guard let encoded = try? JSONEncoder().encode(BudgetData(budgets: budgets, expenses: expenses)) else { return }
         let url = fileURL
         Task.detached {
             do {
-                let encoded = try JSONEncoder().encode(data)
                 try encoded.write(to: url, options: .atomic)
             } catch {
-                await MainActor.run { self.lastError = "儲存失敗：\(error.localizedDescription)" }
+                print("[BudgetStore] save error: \(error)")
             }
         }
     }
