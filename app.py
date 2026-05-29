@@ -372,6 +372,15 @@ with tab_edit:
 
     st.subheader("市場型資產  Market Assets")
     st.caption("Stocks · ETFs · Crypto · Commodities — prices fetched automatically via yfinance.")
+    with st.expander("📖 Ticker 格式參考", expanded=False):
+        st.markdown(
+            "| 類型 | 範例 |\n"
+            "|------|------|\n"
+            "| 台股 | `2330.TW`、`0050.TW` |\n"
+            "| 美股 / ETF | `AAPL`、`SPY`、`QQQ` |\n"
+            "| 加密貨幣 | `BTC-USD`、`ETH-USD`、`SOL-USD`、`BNB-USD` |\n"
+            "| 黃金 / 原油 | `GC=F`、`CL=F`、`SI=F`、`NG=F` |\n"
+        )
 
     edited_market = st.data_editor(
         st.session_state["edit_market_df"],

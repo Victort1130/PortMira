@@ -3,57 +3,30 @@ from datetime import date
 from src.models import STOCK_CATEGORIES, CRYPTO_CATEGORIES, COMMODITY_CATEGORIES
 from src.price_fetcher import (
     fetch_stock_prices,
-    fetch_crypto_prices,
     fetch_prev_closes,
-    fetch_crypto_prev_closes,
     fetch_all_fx_rates,
 )
+
+# All auto-priced categories go through yfinance (crypto uses BTC-USD format)
+_YF_CATEGORIES = STOCK_CATEGORIES | CRYPTO_CATEGORIES | COMMODITY_CATEGORIES
 
 
 def build_prices(assets_df: pd.DataFrame) -> dict[str, float]:
     """Fetch market prices for all auto-priced assets. Returns {ticker: price}."""
-    prices: dict[str, float] = {}
-
-    # Stocks, ETFs, and commodities all go through yfinance
-    yf_categories = STOCK_CATEGORIES | COMMODITY_CATEGORIES
-    stock_tickers = (
-        assets_df[assets_df["category"].isin(yf_categories) & assets_df["ticker"].notna()]["ticker"]
+    tickers = (
+        assets_df[assets_df["category"].isin(_YF_CATEGORIES) & assets_df["ticker"].notna()]["ticker"]
         .tolist()
     )
-    if stock_tickers:
-        prices.update(fetch_stock_prices(stock_tickers))
-
-    crypto_ids = (
-        assets_df[(assets_df["category"] == "crypto") & assets_df["ticker"].notna()]["ticker"]
-        .tolist()
-    )
-    if crypto_ids:
-        prices.update(fetch_crypto_prices(crypto_ids, vs_currency="usd"))
-
-    return prices
+    return fetch_stock_prices(tickers) if tickers else {}
 
 
 def build_prev_closes(assets_df: pd.DataFrame) -> dict[str, float]:
     """Fetch previous close prices for daily change calculation. Returns {ticker: prev_close}."""
-    prev_closes: dict[str, float] = {}
-
-    # Stocks, ETFs, and commodities all go through yfinance
-    yf_categories = STOCK_CATEGORIES | COMMODITY_CATEGORIES
-    stock_tickers = (
-        assets_df[assets_df["category"].isin(yf_categories) & assets_df["ticker"].notna()]["ticker"]
+    tickers = (
+        assets_df[assets_df["category"].isin(_YF_CATEGORIES) & assets_df["ticker"].notna()]["ticker"]
         .tolist()
     )
-    if stock_tickers:
-        prev_closes.update(fetch_prev_closes(stock_tickers))
-
-    crypto_ids = (
-        assets_df[(assets_df["category"] == "crypto") & assets_df["ticker"].notna()]["ticker"]
-        .tolist()
-    )
-    if crypto_ids:
-        prev_closes.update(fetch_crypto_prev_closes(crypto_ids))
-
-    return prev_closes
+    return fetch_prev_closes(tickers) if tickers else {}
 
 
 def build_fx_rates(
