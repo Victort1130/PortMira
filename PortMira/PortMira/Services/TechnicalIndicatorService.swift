@@ -49,7 +49,7 @@ actor TechnicalIndicatorService {
 
     // MARK: RSI (period = 14)
 
-    func calcRSI(_ closes: [Double], period: Int = 14) -> Double? {
+    nonisolated func calcRSI(_ closes: [Double], period: Int = 14) -> Double? {
         guard closes.count > period else { return nil }
         var gains: [Double] = []
         var losses: [Double] = []
@@ -73,7 +73,7 @@ actor TechnicalIndicatorService {
 
     // MARK: MACD (fast=12, slow=26, signal=9)
 
-    func calcMACD(
+    nonisolated func calcMACD(
         _ closes: [Double],
         fast: Int = 12, slow: Int = 26, signal: Int = 9
     ) -> (macd: Double?, signal: Double?, hist: Double?) {
@@ -109,7 +109,7 @@ actor TechnicalIndicatorService {
 
     // MARK: Context strings
 
-    func rsiContext(_ rsi: Double?) -> String {
+    nonisolated func rsiContext(_ rsi: Double?) -> String {
         guard let r = rsi else { return "" }
         if r >= 70 { return "短期偏超買" }
         if r <= 30 { return "短期偏超賣" }
@@ -118,7 +118,7 @@ actor TechnicalIndicatorService {
         return "中性"
     }
 
-    func macdContext(_ macd: Double?, _ signal: Double?, _ hist: Double?) -> String {
+    nonisolated func macdContext(_ macd: Double?, _ signal: Double?, _ hist: Double?) -> String {
         guard let h = hist, let m = macd, let s = signal else { return "" }
         if h > 0 && m > s { return "MACD 多頭排列" }
         if h < 0 && m < s { return "MACD 空頭排列" }
@@ -170,7 +170,7 @@ actor TechnicalIndicatorService {
 
     // MARK: Crypto ticker mapping (CoinGecko id → Yahoo Finance ticker)
 
-    private func cryptoToYahoo(_ id: String) -> String {
+    nonisolated private func cryptoToYahoo(_ id: String) -> String {
         let map: [String: String] = [
             "bitcoin":      "BTC-USD",
             "ethereum":     "ETH-USD",
