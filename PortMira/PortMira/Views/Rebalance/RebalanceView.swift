@@ -3,9 +3,10 @@ import Charts
 
 struct RebalanceView: View {
     @Environment(PortfolioStore.self) private var store
+    @State private var tolerance: Double = 5.0
 
     var actions: [RebalanceAction] {
-        CalculationsEngine.calcRebalance(enrichedAssets: store.enrichedAssets)
+        CalculationsEngine.calcRebalance(enrichedAssets: store.enrichedAssets, tolerance: tolerance)
     }
 
     var totalTargetPct: Double {
@@ -54,6 +55,16 @@ struct RebalanceView: View {
             }
         }
         .navigationTitle("再平衡")
+        .toolbar {
+            ToolbarItem {
+                HStack(spacing: 8) {
+                    Text("容忍帶").font(.caption).foregroundStyle(.secondary)
+                    Slider(value: $tolerance, in: 0...15, step: 1)
+                        .frame(width: 120)
+                    Text("±\(Int(tolerance))%").font(.caption.monospacedDigit()).frame(width: 36)
+                }
+            }
+        }
     }
 
     // MARK: - Sub-views
@@ -160,6 +171,12 @@ private struct RebalanceTable: View {
                 Text(a.targetPct.formatted(.number.precision(.fractionLength(1))) + "%")
                     .monospacedDigit()
             }.width(80)
+            TableColumn("允許範圍") { a in
+                Text(a.targetRange)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }.width(100)
             TableColumn("調整金額") { a in
                 Text(a.deltaValue.formatted(.number.precision(.fractionLength(0))))
                     .monospacedDigit()

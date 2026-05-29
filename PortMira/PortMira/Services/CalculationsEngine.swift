@@ -107,7 +107,7 @@ enum CalculationsEngine {
 
     // MARK: - Rebalancing
 
-    static func calcRebalance(enrichedAssets: [EnrichedAsset]) -> [RebalanceAction] {
+    static func calcRebalance(enrichedAssets: [EnrichedAsset], tolerance: Double = 5.0) -> [RebalanceAction] {
         let withTargets = enrichedAssets.filter {
             if let t = $0.asset.targetPct { return t > 0 } else { return false }
         }
@@ -129,6 +129,7 @@ enum CalculationsEngine {
                 asset:      ea.asset,
                 currentPct: currentPct,
                 targetPct:  targetPct,
+                tolerance:  tolerance,
                 deltaValue: delta,
                 deltaUnits: deltaUnits
             )

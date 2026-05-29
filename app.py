@@ -643,7 +643,13 @@ with tab_rebalance:
                 "請前往「✏️ 編輯組合」，在各資產的 **Target %** 欄位填入目標配置百分比。"
             )
         else:
-            rebalance_df = calc_rebalance(enriched_df)
+            _tolerance = st.slider(
+                "容忍帶 Tolerance", min_value=0, max_value=15, value=5, step=1,
+                format="±%d%%",
+                help="目前佔比在目標 ± 此值內時顯示「持有 Hold」，不需操作",
+                key="rebalance_tolerance",
+            )
+            rebalance_df = calc_rebalance(enriched_df, tolerance_pct=float(_tolerance))
             total_value  = float(enriched_df["market_value"].sum())
             total_target = float(
                 pd.to_numeric(enriched_df["target_pct"], errors="coerce").fillna(0).sum()
@@ -693,6 +699,7 @@ with tab_rebalance:
                         "market_value": st.column_config.TextColumn(f"現值 ({display_currency})"),
                         "current_pct":  st.column_config.TextColumn("目前佔比"),
                         "target_pct":   st.column_config.TextColumn("目標佔比"),
+                        "target_range": st.column_config.TextColumn("允許範圍"),
                         "delta_value":  st.column_config.TextColumn("調整金額"),
                         "delta_units":  st.column_config.TextColumn("調整數量"),
                         "action":       st.column_config.TextColumn("操作"),

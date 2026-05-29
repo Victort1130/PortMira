@@ -159,11 +159,12 @@ def add_cagr_column(enriched_df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def calc_rebalance(enriched_df: pd.DataFrame) -> pd.DataFrame:
+def calc_rebalance(enriched_df: pd.DataFrame, tolerance_pct: float = 5.0) -> pd.DataFrame:
     """Compute rebalancing actions based on target_pct column (values in 0–100 range).
 
+    tolerance_pct: acceptable deviation in percentage points (e.g. 5 means target±5% = hold).
     Returns DataFrame sorted by absolute delta, with columns:
-    name, ticker, category, market_value, current_pct, target_pct,
+    name, ticker, category, market_value, current_pct, target_pct, target_range,
     delta_value, delta_units, action
     """
     if "target_pct" not in enriched_df.columns:
@@ -181,6 +182,9 @@ def calc_rebalance(enriched_df: pd.DataFrame) -> pd.DataFrame:
     df["current_pct"] = df["market_value"] / total_value * 100
     df["target_value"] = total_value * df["target_pct"] / 100
     df["delta_value"] = df["target_value"] - df["market_value"]
+    df["target_range"] = df["target_pct"].apply(
+        lambda t: f"{max(0, t - tolerance_pct):.0f}% – {t + tolerance_pct:.0f}%"
+    )
 
     def _delta_units(row) -> float:
         price_in_base = float(row.get("current_price", 0) or 0) * float(row.get("fx_rate", 1) or 1)
@@ -189,12 +193,19 @@ def calc_rebalance(enriched_df: pd.DataFrame) -> pd.DataFrame:
         return row["delta_value"] / price_in_base
 
     df["delta_units"] = df.apply(_delta_units, axis=1)
-    df["action"] = df["delta_value"].apply(
-        lambda v: "買入 Buy" if v > 1 else ("賣出 Sell" if v < -1 else "持有 Hold")
-    )
+
+    def _action(row) -> str:
+        diff = row["current_pct"] - row["target_pct"]
+        if diff < -tolerance_pct:
+            return "買入 Buy"
+        if diff > tolerance_pct:
+            return "賣出 Sell"
+        return "持有 Hold"
+
+    df["action"] = df.apply(_action, axis=1)
 
     cols = ["name", "ticker", "category", "market_value", "current_pct", "target_pct",
-            "delta_value", "delta_units", "action"]
+            "target_range", "delta_value", "delta_units", "action"]
     return df[[c for c in cols if c in df.columns]].sort_values(
         "delta_value", key=abs, ascending=False
     ).reset_index(drop=True)

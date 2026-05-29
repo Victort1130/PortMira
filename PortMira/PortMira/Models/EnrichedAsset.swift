@@ -20,17 +20,25 @@ struct EnrichedAsset: Identifiable {
 }
 
 struct RebalanceAction: Identifiable {
-    var id:         String { asset.id }
-    var asset:      Asset
-    var currentPct: Double
-    var targetPct:  Double
-    var deltaValue: Double
-    var deltaUnits: Double?
+    var id:          String { asset.id }
+    var asset:       Asset
+    var currentPct:  Double
+    var targetPct:   Double
+    var tolerance:   Double  // percentage points, e.g. 5.0
+    var deltaValue:  Double
+    var deltaUnits:  Double?
 
     var action: String {
-        if deltaValue > 1  { return "買入 Buy" }
-        if deltaValue < -1 { return "賣出 Sell" }
+        let diff = currentPct - targetPct
+        if diff < -tolerance { return "買入 Buy" }
+        if diff > tolerance  { return "賣出 Sell" }
         return "持有 Hold"
+    }
+
+    var targetRange: String {
+        let lo = max(0, targetPct - tolerance)
+        let hi = targetPct + tolerance
+        return String(format: "%.0f%% – %.0f%%", lo, hi)
     }
 }
 
