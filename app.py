@@ -1011,17 +1011,42 @@ with tab_budget:
             st.info("本月尚無支出記錄")
 
         if _older:
-            # Group older records by year-month
-            _by_month: dict = {}
+            # Group by year → month, two-level collapsible
+            _by_year: dict = {}
             for _e in _older:
+                _yr = _e["date"][:4]
                 _ym = _e["date"][:7]
-                _by_month.setdefault(_ym, []).append(_e)
+                _by_year.setdefault(_yr, {}).setdefault(_ym, []).append(_e)
+
             with st.expander(f"📂 歷史記錄（共 {len(_older)} 筆）"):
-                for _ym in sorted(_by_month.keys(), reverse=True):
-                    _yr, _mo = _ym.split("-")
-                    st.caption(f"**{_yr} 年 {_mo} 月**（{len(_by_month[_ym])} 筆）")
-                    _render_expense_row(_by_month[_ym])
-                    st.markdown("---")
+                for _yr in sorted(_by_year.keys(), reverse=True):
+                    _yr_total = sum(len(v) for v in _by_year[_yr].values())
+                    _yr_key = f"_hist_yr_{_yr}"
+                    if _yr_key not in st.session_state:
+                        st.session_state[_yr_key] = False
+                    _yc1, _yc2 = st.columns([9, 1])
+                    with _yc1:
+                        st.markdown(f"**📅 {_yr} 年**（{_yr_total} 筆）")
+                    with _yc2:
+                        if st.button("▼" if st.session_state[_yr_key] else "▶",
+                                     key=f"btn_yr_{_yr}"):
+                            st.session_state[_yr_key] = not st.session_state[_yr_key]
+                    if st.session_state[_yr_key]:
+                        for _ym in sorted(_by_year[_yr].keys(), reverse=True):
+                            _mo = _ym.split("-")[1]
+                            _mo_exps = _by_year[_yr][_ym]
+                            _mo_key = f"_hist_mo_{_ym}"
+                            if _mo_key not in st.session_state:
+                                st.session_state[_mo_key] = False
+                            _mc1, _mc2 = st.columns([9, 1])
+                            with _mc1:
+                                st.caption(f"　{_mo} 月（{len(_mo_exps)} 筆）")
+                            with _mc2:
+                                if st.button("▼" if st.session_state[_mo_key] else "▶",
+                                             key=f"btn_mo_{_ym}"):
+                                    st.session_state[_mo_key] = not st.session_state[_mo_key]
+                            if st.session_state[_mo_key]:
+                                _render_expense_row(sorted(_mo_exps, key=lambda x: x["date"], reverse=True))
 
         # Edit form (shown when an expense is selected for editing)
         _editing_id = st.session_state.get("_editing_expense_id")

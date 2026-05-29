@@ -61,12 +61,19 @@ struct BudgetView: View {
 
                 if !older.isEmpty {
                     DisclosureGroup("歷史記錄（共 \(older.count) 筆）") {
-                        let grouped = Dictionary(grouping: older) { String($0.date.prefix(7)) }
-                        ForEach(grouped.keys.sorted(by: >), id: \.self) { ym in
-                            let parts = ym.split(separator: "-")
-                            let label = parts.count == 2 ? "\(parts[0]) 年 \(parts[1]) 月" : ym
-                            Section(header: Text(label).font(.caption).foregroundStyle(.secondary)) {
-                                expenseList(grouped[ym]!.sorted { $0.date > $1.date })
+                        let byYear = Dictionary(grouping: older) { String($0.date.prefix(4)) }
+                        ForEach(byYear.keys.sorted(by: >), id: \.self) { yr in
+                            let yearExpenses = byYear[yr]!
+                            DisclosureGroup("📅 \(yr) 年（\(yearExpenses.count) 筆）") {
+                                let byMonth = Dictionary(grouping: yearExpenses) { String($0.date.prefix(7)) }
+                                ForEach(byMonth.keys.sorted(by: >), id: \.self) { ym in
+                                    let mo = String(ym.split(separator: "-").last ?? "")
+                                    let moExpenses = byMonth[ym]!.sorted { $0.date > $1.date }
+                                    DisclosureGroup("\(mo) 月（\(moExpenses.count) 筆）") {
+                                        expenseList(moExpenses)
+                                    }
+                                    .padding(.leading, 8)
+                                }
                             }
                         }
                     }
