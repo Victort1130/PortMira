@@ -961,18 +961,59 @@ with tab_budget:
         _filtered_sort = sorted(_filtered_exp, key=lambda x: x["date"], reverse=True)[:30]
 
         if _filtered_sort:
-            _df_exp = pd.DataFrame(_filtered_sort)[["date", "category", "amount", "currency", "note"]]
-            _df_exp.columns = ["日期", "類別", "金額", "幣別", "備註"]
-            st.dataframe(_df_exp, use_container_width=True, hide_index=True)
+            for _e in _filtered_sort:
+                _ecol1, _ecol2, _ecol3 = st.columns([4, 1, 1])
+                with _ecol1:
+                    _note_txt = f" — {_e['note']}" if _e.get("note") else ""
+                    st.caption(f"**{_e['date']}** {_e['category']} {_e['amount']:,.0f} {_e['currency']}{_note_txt}")
+                with _ecol2:
+                    if st.button("✏️", key=f"edit_exp_{_e['id']}", help="編輯"):
+                        st.session_state["_editing_expense_id"] = _e["id"]
+                        st.rerun()
+                with _ecol3:
+                    if st.button("🗑️", key=f"del_exp_{_e['id']}", help="刪除"):
+                        st.session_state.expenses = [x for x in _expenses if x["id"] != _e["id"]]
+                        save_expenses(st.session_state.expenses)
+                        st.session_state.pop("_editing_expense_id", None)
+                        st.rerun()
         else:
             st.info("尚無支出記錄")
 
-        if _filtered_sort:
-            if st.button("🗑️ 刪除最後一筆支出", key="del_last_expense"):
-                _last_id = _filtered_sort[0]["id"]
-                st.session_state.expenses = [e for e in _expenses if e["id"] != _last_id]
-                save_expenses(st.session_state.expenses)
-                st.rerun()
+        # Edit form (shown when an expense is selected for editing)
+        _editing_id = st.session_state.get("_editing_expense_id")
+        _editing_exp = next((e for e in _expenses if e["id"] == _editing_id), None) if _editing_id else None
+        if _editing_exp:
+            st.divider()
+            st.markdown(f"**✏️ 編輯支出**（{_editing_exp['date']} {_editing_exp['category']}）")
+            with st.form("edit_expense_form"):
+                _edit_date = st.date_input("日期", value=_dt.date.fromisoformat(_editing_exp["date"]), key="edit_exp_date")
+                _edit_cat  = st.selectbox("類別", EXPENSE_CATEGORIES,
+                                          index=EXPENSE_CATEGORIES.index(_editing_exp["category"])
+                                          if _editing_exp["category"] in EXPENSE_CATEGORIES else 0,
+                                          key="edit_exp_cat")
+                _edit_amt  = st.number_input("金額", min_value=0.01, value=float(_editing_exp["amount"]), step=1.0, key="edit_exp_amt")
+                _edit_cur  = st.selectbox("幣別", ["TWD", "USD", "EUR", "JPY", "GBP"],
+                                          index=["TWD", "USD", "EUR", "JPY", "GBP"].index(_editing_exp["currency"])
+                                          if _editing_exp["currency"] in ["TWD", "USD", "EUR", "JPY", "GBP"] else 0,
+                                          key="edit_exp_cur")
+                _edit_note = st.text_input("備註", value=_editing_exp.get("note", ""), key="edit_exp_note")
+                _ec1, _ec2 = st.columns(2)
+                with _ec1:
+                    if st.form_submit_button("💾 儲存修改"):
+                        _updated = {**_editing_exp,
+                                    "date": _edit_date.isoformat(),
+                                    "category": _edit_cat,
+                                    "amount": _edit_amt,
+                                    "currency": _edit_cur,
+                                    "note": _edit_note}
+                        st.session_state.expenses = [_updated if e["id"] == _editing_id else e for e in _expenses]
+                        save_expenses(st.session_state.expenses)
+                        st.session_state.pop("_editing_expense_id", None)
+                        st.rerun()
+                with _ec2:
+                    if st.form_submit_button("取消"):
+                        st.session_state.pop("_editing_expense_id", None)
+                        st.rerun()
 
     with _col_form:
         st.subheader("➕ 新增支出")

@@ -5,6 +5,7 @@ struct BudgetView: View {
     @Environment(PortfolioStore.self) var portfolioStore
     @State private var showAddExpense = false
     @State private var showSettings = false
+    @State private var editingExpense: Expense? = nil
 
     var statuses: [BudgetStatus] {
         budgetStore.calcBudgetStatuses(
@@ -50,15 +51,23 @@ struct BudgetView: View {
                     List {
                         ForEach(sorted.prefix(20)) { e in
                             ExpenseRow(expense: e)
-                        }
-                        .onDelete { offsets in
-                            let idsToDelete = offsets.map { sorted[$0].id }
-                            let indicesToDelete = IndexSet(
-                                idsToDelete.compactMap { id in
-                                    budgetStore.expenses.firstIndex(where: { $0.id == id })
+                                .contentShape(Rectangle())
+                                .onTapGesture { editingExpense = e }
+                                .swipeActions(edge: .trailing) {
+                                    Button(role: .destructive) {
+                                        if let idx = budgetStore.expenses.firstIndex(where: { $0.id == e.id }) {
+                                            budgetStore.deleteExpenses(at: IndexSet([idx]))
+                                        }
+                                    } label: {
+                                        Label("刪除", systemImage: "trash")
+                                    }
+                                    Button {
+                                        editingExpense = e
+                                    } label: {
+                                        Label("編輯", systemImage: "pencil")
+                                    }
+                                    .tint(.blue)
                                 }
-                            )
-                            budgetStore.deleteExpenses(at: indicesToDelete)
                         }
                     }
                     .listStyle(.plain)
@@ -80,6 +89,10 @@ struct BudgetView: View {
         }
         .sheet(isPresented: $showAddExpense) {
             ExpenseFormView()
+                .environment(budgetStore)
+        }
+        .sheet(item: $editingExpense) { expense in
+            ExpenseFormView(editing: expense)
                 .environment(budgetStore)
         }
         .sheet(isPresented: $showSettings) {

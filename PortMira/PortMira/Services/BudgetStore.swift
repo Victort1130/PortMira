@@ -63,6 +63,13 @@ final class BudgetStore {
         save()
     }
 
+    func updateExpense(_ expense: Expense) {
+        if let idx = expenses.firstIndex(where: { $0.id == expense.id }) {
+            expenses[idx] = expense
+            save()
+        }
+    }
+
     func updateBudget(_ budget: Budget) {
         if let idx = budgets.firstIndex(where: { $0.id == budget.id }) {
             budgets[idx] = budget

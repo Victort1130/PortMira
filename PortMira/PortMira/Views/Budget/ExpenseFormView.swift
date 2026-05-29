@@ -4,11 +4,15 @@ struct ExpenseFormView: View {
     @Environment(BudgetStore.self) var budgetStore
     @Environment(\.dismiss) var dismiss
 
+    var editing: Expense? = nil
+
     @State private var date = Date()
     @State private var category: ExpenseCategory = .food
     @State private var amount: Double = 0
     @State private var currency = "TWD"
     @State private var note = ""
+
+    private var isEditing: Bool { editing != nil }
 
     var body: some View {
         NavigationStack {
@@ -25,26 +29,51 @@ struct ExpenseFormView: View {
                 }
                 TextField("備註（選填）", text: $note)
             }
-            .navigationTitle("新增支出")
+            .navigationTitle(isEditing ? "編輯支出" : "新增支出")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("儲存") {
-                        let fmt = DateFormatter(); fmt.dateFormat = "yyyy-MM-dd"
-                        budgetStore.addExpense(Expense(
-                            id: "exp_\(UUID().uuidString.prefix(8))",
-                            date: fmt.string(from: date),
-                            category: category,
-                            amount: amount,
-                            currency: currency,
-                            note: note
-                        ))
-                        dismiss()
-                    }
-                    .disabled(amount <= 0)
+                    Button("儲存") { save() }
+                        .disabled(amount <= 0)
                 }
             }
         }
         .frame(minWidth: 320, minHeight: 300)
+        .onAppear { prefill() }
+    }
+
+    private func prefill() {
+        guard let e = editing else { return }
+        let fmt = DateFormatter(); fmt.dateFormat = "yyyy-MM-dd"
+        date = fmt.date(from: e.date) ?? Date()
+        category = e.category
+        amount = e.amount
+        currency = e.currency
+        note = e.note
+    }
+
+    private func save() {
+        let fmt = DateFormatter(); fmt.dateFormat = "yyyy-MM-dd"
+        let dateStr = fmt.string(from: date)
+        if let existing = editing {
+            budgetStore.updateExpense(Expense(
+                id: existing.id,
+                date: dateStr,
+                category: category,
+                amount: amount,
+                currency: currency,
+                note: note
+            ))
+        } else {
+            budgetStore.addExpense(Expense(
+                id: "exp_\(UUID().uuidString.prefix(8))",
+                date: dateStr,
+                category: category,
+                amount: amount,
+                currency: currency,
+                note: note
+            ))
+        }
+        dismiss()
     }
 }
