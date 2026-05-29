@@ -36,7 +36,7 @@ struct AssetFormView: View {
                 }
 
                 if category.isAutoPrice {
-                    TextField("Ticker（如 AAPL、2330.TW、bitcoin）", text: $ticker)
+                    TextField("Ticker（如 AAPL、2330.TW、BTC-USD、GC=F）", text: $ticker)
                         #if os(iOS)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.characters)
