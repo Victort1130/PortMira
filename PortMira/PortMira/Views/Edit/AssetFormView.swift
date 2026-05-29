@@ -18,6 +18,10 @@ struct AssetFormView: View {
     @State private var purchaseDate:    Date = Date()
     @State private var hasTargetPct:    Bool = false
     @State private var targetPct:       Double = 0
+    @State private var hasTargetMin:    Bool = false
+    @State private var targetMinPct:    Double = 0
+    @State private var hasTargetMax:    Bool = false
+    @State private var targetMaxPct:    Double = 0
 
     var body: some View {
         Form {
@@ -77,6 +81,26 @@ struct AssetFormView: View {
                             .multilineTextAlignment(.trailing)
                         Text("%")
                     }
+                    Toggle("設定下限 Min %", isOn: $hasTargetMin.animation())
+                    if hasTargetMin {
+                        HStack {
+                            Text("最低佔比")
+                            Spacer()
+                            TextField("0", value: $targetMinPct, format: .number)
+                                .multilineTextAlignment(.trailing)
+                            Text("%")
+                        }
+                    }
+                    Toggle("設定上限 Max %", isOn: $hasTargetMax.animation())
+                    if hasTargetMax {
+                        HStack {
+                            Text("最高佔比")
+                            Spacer()
+                            TextField("0", value: $targetMaxPct, format: .number)
+                                .multilineTextAlignment(.trailing)
+                            Text("%")
+                        }
+                    }
                 }
 
                 TextField("備註", text: $note)
@@ -114,6 +138,14 @@ struct AssetFormView: View {
             hasTargetPct = true
             targetPct    = tp
         }
+        if let mn = a.targetMinPct, mn > 0 {
+            hasTargetMin = true
+            targetMinPct = mn
+        }
+        if let mx = a.targetMaxPct, mx > 0 {
+            hasTargetMax = true
+            targetMaxPct = mx
+        }
     }
 
     private func saveAndDismiss() {
@@ -127,6 +159,8 @@ struct AssetFormView: View {
             currency:     currency,
             purchaseDate: hasPurchaseDate ? DateFormatter.yyyyMMdd.string(from: purchaseDate) : nil,
             targetPct:    hasTargetPct && targetPct > 0 ? targetPct : nil,
+            targetMinPct: hasTargetPct && hasTargetMin && targetMinPct > 0 ? targetMinPct : nil,
+            targetMaxPct: hasTargetPct && hasTargetMax && targetMaxPct > 0 ? targetMaxPct : nil,
             note:         note.isEmpty ? nil : note
         )
         if existing != nil {

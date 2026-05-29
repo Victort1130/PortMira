@@ -149,7 +149,7 @@ CURRENCIES       = ["TWD", "USD", "EUR", "JPY", "GBP"]
 _MARKET_CATS = ["stock", "stock_tw", "etf", "crypto", "commodity"]
 _MANUAL_CATS = ["cash", "other"]
 _MARKET_COLS = ["name", "category", "ticker", "quantity", "cost_per_unit",
-                "currency", "purchase_date", "target_pct", "note"]
+                "currency", "purchase_date", "target_pct", "target_min_pct", "target_max_pct", "note"]
 _MANUAL_COLS = ["name", "category", "quantity", "cost_per_unit",
                 "currency", "purchase_date", "target_pct", "note"]
 _LIAB_COLS   = ["name", "category", "amount", "currency", "annual_rate", "note"]
@@ -396,9 +396,13 @@ with tab_edit:
             "cost_per_unit": st.column_config.NumberColumn("Cost / Unit", min_value=0, step=1e-8, format="%.8g"),
             "currency":      st.column_config.SelectboxColumn("Currency", options=CURRENCIES, required=True),
             "purchase_date": st.column_config.DateColumn("Purchase Date", format="YYYY-MM-DD"),
-            "target_pct":    st.column_config.NumberColumn("Target %", min_value=0, max_value=100,
-                                                            help="再平衡目標比例（0–100）"),
-            "note":          st.column_config.TextColumn("Note"),
+            "target_pct":     st.column_config.NumberColumn("Target %", min_value=0, max_value=100,
+                                                             help="再平衡目標比例（0–100）"),
+            "target_min_pct": st.column_config.NumberColumn("Min %", min_value=0, max_value=100,
+                                                             help="允許的最低佔比，空白則用全局容忍帶"),
+            "target_max_pct": st.column_config.NumberColumn("Max %", min_value=0, max_value=100,
+                                                             help="允許的最高佔比，空白則用全局容忍帶"),
+            "note":           st.column_config.TextColumn("Note"),
         },
     )
     if st.button("＋ 新增市場資產行", key="add_market_row"):

@@ -182,10 +182,6 @@ def calc_rebalance(enriched_df: pd.DataFrame, tolerance_pct: float = 5.0) -> pd.
     df["current_pct"] = df["market_value"] / total_value * 100
     df["target_value"] = total_value * df["target_pct"] / 100
     df["delta_value"] = df["target_value"] - df["market_value"]
-    df["target_range"] = df["target_pct"].apply(
-        lambda t: f"{max(0, t - tolerance_pct):.0f}% – {t + tolerance_pct:.0f}%"
-    )
-
     def _delta_units(row) -> float:
         price_in_base = float(row.get("current_price", 0) or 0) * float(row.get("fx_rate", 1) or 1)
         if price_in_base <= 0:
@@ -194,15 +190,28 @@ def calc_rebalance(enriched_df: pd.DataFrame, tolerance_pct: float = 5.0) -> pd.
 
     df["delta_units"] = df.apply(_delta_units, axis=1)
 
+    def _bounds(row):
+        lo = row.get("target_min_pct")
+        hi = row.get("target_max_pct")
+        tgt = row["target_pct"]
+        lo = float(lo) if pd.notna(lo) and lo != "" else tgt - tolerance_pct
+        hi = float(hi) if pd.notna(hi) and hi != "" else tgt + tolerance_pct
+        return lo, hi
+
     def _action(row) -> str:
-        diff = row["current_pct"] - row["target_pct"]
-        if diff < -tolerance_pct:
+        lo, hi = _bounds(row)
+        if row["current_pct"] < lo:
             return "買入 Buy"
-        if diff > tolerance_pct:
+        if row["current_pct"] > hi:
             return "賣出 Sell"
         return "持有 Hold"
 
+    def _range_str(row) -> str:
+        lo, hi = _bounds(row)
+        return f"{max(0, lo):.0f}% – {hi:.0f}%"
+
     df["action"] = df.apply(_action, axis=1)
+    df["target_range"] = df.apply(_range_str, axis=1)
 
     cols = ["name", "ticker", "category", "market_value", "current_pct", "target_pct",
             "target_range", "delta_value", "delta_units", "action"]

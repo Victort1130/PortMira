@@ -11,7 +11,9 @@ struct Asset: Codable, Identifiable {
     var costPerUnit: Double
     var currency: Currency
     var purchaseDate: String?
-    var targetPct: Double?
+    var targetPct:    Double?
+    var targetMinPct: Double?
+    var targetMaxPct: Double?
     var note: String?
 
     enum CodingKeys: String, CodingKey {
@@ -19,7 +21,9 @@ struct Asset: Codable, Identifiable {
         case costPerUnit = "cost_per_unit"
         case currency
         case purchaseDate = "purchase_date"
-        case targetPct   = "target_pct"
+        case targetPct    = "target_pct"
+        case targetMinPct = "target_min_pct"
+        case targetMaxPct = "target_max_pct"
         case note
     }
 }

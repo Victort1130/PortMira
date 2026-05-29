@@ -28,17 +28,18 @@ struct RebalanceAction: Identifiable {
     var deltaValue:  Double
     var deltaUnits:  Double?
 
+    // Effective bounds: use per-asset min/max if set, otherwise fall back to target ± tolerance
+    var effectiveLo: Double { asset.targetMinPct ?? (targetPct - tolerance) }
+    var effectiveHi: Double { asset.targetMaxPct ?? (targetPct + tolerance) }
+
     var action: String {
-        let diff = currentPct - targetPct
-        if diff < -tolerance { return "買入 Buy" }
-        if diff > tolerance  { return "賣出 Sell" }
+        if currentPct < effectiveLo { return "買入 Buy" }
+        if currentPct > effectiveHi { return "賣出 Sell" }
         return "持有 Hold"
     }
 
     var targetRange: String {
-        let lo = max(0, targetPct - tolerance)
-        let hi = targetPct + tolerance
-        return String(format: "%.0f%% – %.0f%%", lo, hi)
+        String(format: "%.0f%% – %.0f%%", max(0, effectiveLo), effectiveHi)
     }
 }
 
