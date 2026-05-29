@@ -1024,12 +1024,12 @@ with tab_budget:
                     _yr_key = f"_hist_yr_{_yr}"
                     if _yr_key not in st.session_state:
                         st.session_state[_yr_key] = False
-                    _yc1, _yc2 = st.columns([9, 1])
+                    _yc1, _yc2 = st.columns([7, 2])
                     with _yc1:
                         st.markdown(f"**📅 {_yr} 年**（{_yr_total} 筆）")
                     with _yc2:
-                        if st.button("▼" if st.session_state[_yr_key] else "▶",
-                                     key=f"btn_yr_{_yr}"):
+                        if st.button("▼ 收起" if st.session_state[_yr_key] else "▶ 展開",
+                                     key=f"btn_yr_{_yr}", use_container_width=True):
                             st.session_state[_yr_key] = not st.session_state[_yr_key]
                     if st.session_state[_yr_key]:
                         for _ym in sorted(_by_year[_yr].keys(), reverse=True):
@@ -1038,12 +1038,12 @@ with tab_budget:
                             _mo_key = f"_hist_mo_{_ym}"
                             if _mo_key not in st.session_state:
                                 st.session_state[_mo_key] = False
-                            _mc1, _mc2 = st.columns([9, 1])
+                            _mc1, _mc2 = st.columns([7, 2])
                             with _mc1:
                                 st.caption(f"　{_mo} 月（{len(_mo_exps)} 筆）")
                             with _mc2:
-                                if st.button("▼" if st.session_state[_mo_key] else "▶",
-                                             key=f"btn_mo_{_ym}"):
+                                if st.button("▼ 收起" if st.session_state[_mo_key] else "▶ 展開",
+                                             key=f"btn_mo_{_ym}", use_container_width=True):
                                     st.session_state[_mo_key] = not st.session_state[_mo_key]
                             if st.session_state[_mo_key]:
                                 _render_expense_row(sorted(_mo_exps, key=lambda x: x["date"], reverse=True))
