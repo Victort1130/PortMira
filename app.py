@@ -976,12 +976,18 @@ with tab_budget:
 
         st.divider()
         st.subheader("📋 支出明細")
-        _cat_filter    = st.selectbox("篩選類別", ["全部"] + EXPENSE_CATEGORIES, key="expense_cat_filter")
-        _filtered_exp  = [e for e in _expenses if _cat_filter == "全部" or e["category"] == _cat_filter]
-        _filtered_sort = sorted(_filtered_exp, key=lambda x: x["date"], reverse=True)[:30]
+        _cat_filter = st.selectbox("篩選類別", ["全部"] + EXPENSE_CATEGORIES, key="expense_cat_filter")
+        _filtered_exp = [e for e in _expenses if _cat_filter == "全部" or e["category"] == _cat_filter]
 
-        if _filtered_sort:
-            for _e in _filtered_sort:
+        # Split into current month vs older
+        _cur_month_start = _dt.date.today().replace(day=1).isoformat()
+        _this_month = sorted([e for e in _filtered_exp if e["date"] >= _cur_month_start],
+                             key=lambda x: x["date"], reverse=True)
+        _older      = sorted([e for e in _filtered_exp if e["date"] < _cur_month_start],
+                             key=lambda x: x["date"], reverse=True)
+
+        def _render_expense_row(exp_list):
+            for _e in exp_list:
                 _ecol1, _ecol2, _ecol3 = st.columns([4, 1, 1])
                 with _ecol1:
                     _note_txt = f" — {_e['note']}" if _e.get("note") else ""
@@ -996,8 +1002,26 @@ with tab_budget:
                         save_expenses(st.session_state.expenses)
                         st.session_state.pop("_editing_expense_id", None)
                         st.rerun()
+
+        _cur_label = _dt.date.today().strftime("本月（%Y/%m）")
+        st.caption(f"**{_cur_label}**")
+        if _this_month:
+            _render_expense_row(_this_month)
         else:
-            st.info("尚無支出記錄")
+            st.info("本月尚無支出記錄")
+
+        if _older:
+            # Group older records by year-month
+            _by_month: dict = {}
+            for _e in _older:
+                _ym = _e["date"][:7]
+                _by_month.setdefault(_ym, []).append(_e)
+            with st.expander(f"📂 歷史記錄（共 {len(_older)} 筆）"):
+                for _ym in sorted(_by_month.keys(), reverse=True):
+                    _yr, _mo = _ym.split("-")
+                    st.caption(f"**{_yr} 年 {_mo} 月**（{len(_by_month[_ym])} 筆）")
+                    _render_expense_row(_by_month[_ym])
+                    st.markdown("---")
 
         # Edit form (shown when an expense is selected for editing)
         _editing_id = st.session_state.get("_editing_expense_id")

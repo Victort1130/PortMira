@@ -41,37 +41,36 @@ struct BudgetView: View {
                     }
                 }
 
-                // Recent expenses
+                // Expenses split by current month vs history
                 Divider()
-                Text("近期支出").font(.headline)
-                if budgetStore.expenses.isEmpty {
-                    Text("尚無支出記錄").foregroundStyle(.secondary)
+                Text("支出明細").font(.headline)
+
+                let allSorted = budgetStore.expenses.sorted { $0.date > $1.date }
+                let curMonthStart = currentMonthStart()
+                let thisMonth = allSorted.filter { $0.date >= curMonthStart }
+                let older     = allSorted.filter { $0.date < curMonthStart }
+
+                let monthLabel = monthDisplayLabel()
+                Text(monthLabel).font(.subheadline).foregroundStyle(.secondary)
+
+                if thisMonth.isEmpty {
+                    Text("本月尚無支出記錄").foregroundStyle(.secondary).font(.caption)
                 } else {
-                    let sorted = budgetStore.expenses.sorted { $0.date > $1.date }
-                    List {
-                        ForEach(sorted.prefix(20)) { e in
-                            ExpenseRow(expense: e)
-                                .contentShape(Rectangle())
-                                .onTapGesture { editingExpense = e }
-                                .swipeActions(edge: .trailing) {
-                                    Button(role: .destructive) {
-                                        if let idx = budgetStore.expenses.firstIndex(where: { $0.id == e.id }) {
-                                            budgetStore.deleteExpenses(at: IndexSet([idx]))
-                                        }
-                                    } label: {
-                                        Label("刪除", systemImage: "trash")
-                                    }
-                                    Button {
-                                        editingExpense = e
-                                    } label: {
-                                        Label("編輯", systemImage: "pencil")
-                                    }
-                                    .tint(.blue)
-                                }
+                    expenseList(thisMonth)
+                }
+
+                if !older.isEmpty {
+                    DisclosureGroup("歷史記錄（共 \(older.count) 筆）") {
+                        let grouped = Dictionary(grouping: older) { String($0.date.prefix(7)) }
+                        ForEach(grouped.keys.sorted(by: >), id: \.self) { ym in
+                            let parts = ym.split(separator: "-")
+                            let label = parts.count == 2 ? "\(parts[0]) 年 \(parts[1]) 月" : ym
+                            Section(header: Text(label).font(.caption).foregroundStyle(.secondary)) {
+                                expenseList(grouped[ym]!.sorted { $0.date > $1.date })
+                            }
                         }
                     }
-                    .listStyle(.plain)
-                    .frame(minHeight: 44, maxHeight: CGFloat(min(sorted.count, 20)) * 44)
+                    .font(.subheadline)
                 }
             }
             .padding()
@@ -99,6 +98,42 @@ struct BudgetView: View {
             BudgetSettingsView()
                 .environment(budgetStore)
         }
+    }
+
+    // MARK: - Helpers
+
+    private func currentMonthStart() -> String {
+        let fmt = DateFormatter(); fmt.dateFormat = "yyyy-MM-dd"
+        let cal = Calendar.current
+        let start = cal.dateInterval(of: .month, for: Date())?.start ?? Date()
+        return fmt.string(from: start)
+    }
+
+    private func monthDisplayLabel() -> String {
+        let fmt = DateFormatter(); fmt.dateFormat = "yyyy 年 MM 月"
+        return fmt.string(from: Date())
+    }
+
+    @ViewBuilder
+    private func expenseList(_ expenses: [Expense]) -> some View {
+        List {
+            ForEach(expenses) { e in
+                ExpenseRow(expense: e)
+                    .contentShape(Rectangle())
+                    .onTapGesture { editingExpense = e }
+                    .swipeActions(edge: .trailing) {
+                        Button(role: .destructive) {
+                            if let idx = budgetStore.expenses.firstIndex(where: { $0.id == e.id }) {
+                                budgetStore.deleteExpenses(at: IndexSet([idx]))
+                            }
+                        } label: { Label("刪除", systemImage: "trash") }
+                        Button { editingExpense = e } label: { Label("編輯", systemImage: "pencil") }
+                            .tint(.blue)
+                    }
+            }
+        }
+        .listStyle(.plain)
+        .frame(minHeight: 44, maxHeight: CGFloat(expenses.count) * 52)
     }
 }
 
