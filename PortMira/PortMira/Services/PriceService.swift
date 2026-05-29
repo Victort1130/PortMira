@@ -54,52 +54,6 @@ enum PriceService {
         }
     }
 
-    // MARK: - CoinGecko (crypto)
-
-    static func fetchCryptoPrices(ids: [String]) async -> [String: Double] {
-        guard !ids.isEmpty,
-              let url = URL(string: "https://api.coingecko.com/api/v3/simple/price?ids=\(ids.joined(separator: ","))&vs_currencies=usd&include_24hr_change=true")
-        else { return [:] }
-        do {
-            let (data, response) = try await URLSession.shared.data(from: url)
-            if let http = response as? HTTPURLResponse, http.statusCode == 429 {
-                print("[PriceService] CoinGecko rate limit")
-                return [:]
-            }
-            let json = try JSONDecoder().decode([String: [String: Double]].self, from: data)
-            var prices: [String: Double] = [:]
-            for id in ids {
-                if let p = json[id]?["usd"] { prices[id] = p }
-            }
-            return prices
-        } catch {
-            print("[PriceService] CoinGecko: \(error)")
-            return [:]
-        }
-    }
-
-    static func fetchCryptoPrevCloses(ids: [String]) async -> [String: Double] {
-        guard !ids.isEmpty,
-              let url = URL(string: "https://api.coingecko.com/api/v3/simple/price?ids=\(ids.joined(separator: ","))&vs_currencies=usd&include_24hr_change=true")
-        else { return [:] }
-        do {
-            let (data, _) = try await URLSession.shared.data(from: url)
-            let json = try JSONDecoder().decode([String: [String: Double]].self, from: data)
-            var prevCloses: [String: Double] = [:]
-            for id in ids {
-                guard let price = json[id]?["usd"],
-                      let change = json[id]?["usd_24h_change"],
-                      price > 0
-                else { continue }
-                let divisor = 1 + change / 100
-                if divisor != 0 { prevCloses[id] = price / divisor }
-            }
-            return prevCloses
-        } catch {
-            return [:]
-        }
-    }
-
     // MARK: - FX Rates
 
     static func fetchFXRates(currencies: [String], base: String) async -> [String: Double] {
@@ -126,18 +80,13 @@ enum PriceService {
     // MARK: - Convenience: fetch all at once
 
     static func fetchAll(assets: [Asset]) async -> (prices: [String: Double], prevCloses: [String: Double]) {
-        // Includes stock, stock_tw, etf, commodity (all have isAutoPrice == true and are not .crypto)
-        let stockTickers = assets.filter { $0.category.isAutoPrice && $0.category != .crypto }
-                                  .compactMap { $0.ticker }
-        let cryptoIds    = assets.filter { $0.category == .crypto }.compactMap { $0.ticker }
+        // All auto-priced assets (stocks, ETFs, crypto, commodity) go through Yahoo Finance.
+        // Crypto tickers must be in BTC-USD format.
+        let tickers = assets.filter { $0.category.isAutoPrice }.compactMap { $0.ticker }
 
-        async let stockPrices     = fetchStockPrices(tickers: stockTickers)
-        async let stockPrevCloses = fetchPrevCloses(tickers: stockTickers)
-        async let cryptoPrices    = fetchCryptoPrices(ids: cryptoIds)
-        async let cryptoPrevClose = fetchCryptoPrevCloses(ids: cryptoIds)
-
-        let (sp, spc, cp, cpc) = await (stockPrices, stockPrevCloses, cryptoPrices, cryptoPrevClose)
-        return (sp.merging(cp) { a, _ in a }, spc.merging(cpc) { a, _ in a })
+        async let prices     = fetchStockPrices(tickers: tickers)
+        async let prevCloses = fetchPrevCloses(tickers: tickers)
+        return await (prices, prevCloses)
     }
 }
 

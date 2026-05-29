@@ -168,17 +168,16 @@ actor TechnicalIndicatorService {
         }
     }
 
-    // MARK: Crypto ticker mapping (CoinGecko id → Yahoo Finance ticker)
+    // MARK: Crypto ticker normalisation → Yahoo Finance format (BTC-USD)
 
     nonisolated private func cryptoToYahoo(_ id: String) -> String {
+        // Already in Yahoo format (e.g. "BTC-USD")
+        if id.uppercased().hasSuffix("-USD") || id.uppercased().hasSuffix("-USDT") { return id.uppercased() }
+        // Legacy CoinGecko name fallback
         let map: [String: String] = [
-            "bitcoin":      "BTC-USD",
-            "ethereum":     "ETH-USD",
-            "binancecoin":  "BNB-USD",
-            "cardano":      "ADA-USD",
-            "solana":       "SOL-USD",
-            "ripple":       "XRP-USD",
-            "dogecoin":     "DOGE-USD",
+            "bitcoin": "BTC-USD", "ethereum": "ETH-USD", "binancecoin": "BNB-USD",
+            "cardano": "ADA-USD", "solana": "SOL-USD", "ripple": "XRP-USD",
+            "dogecoin": "DOGE-USD",
         ]
         return map[id.lowercased()] ?? "\(id.uppercased())-USD"
     }
