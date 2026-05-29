@@ -2,11 +2,13 @@ import SwiftUI
 
 struct HoldingsView: View {
     @Environment(PortfolioStore.self) private var store
-    @State private var showCagr             = false
-    @State private var showIndicators       = false
-    @State private var indicators:          [IndicatorResult] = []
-    @State private var isLoadingIndicators  = false
+    @State private var showCagr              = false
+    @State private var showIndicators        = false
+    @State private var showStats             = false
+    @State private var indicators:           [IndicatorResult] = []
+    @State private var isLoadingIndicators   = false
     @State private var sortOrder = [KeyPathComparator(\EnrichedAsset.marketValue, order: .reverse)]
+    @State private var selectedAssetForChart: Asset? = nil
 
     var body: some View {
         VStack(spacing: 0) {
@@ -17,10 +19,35 @@ struct HoldingsView: View {
                     description: Text("新增資產並按 Refresh 後即可看到持倉明細。")
                 )
             } else {
+                // Portfolio Statistics disclosure group
+                if showStats {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Label("組合統計", systemImage: "ruler")
+                                .font(.headline)
+                                .padding(.horizontal)
+                                .padding(.top, 12)
+                            Spacer()
+                            Button {
+                                withAnimation { showStats = false }
+                            } label: {
+                                Image(systemName: "chevron.up")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.trailing)
+                            .padding(.top, 12)
+                        }
+                        PortfolioStatsView()
+                            .padding(.bottom, 12)
+                        Divider()
+                    }
+                }
+
                 if showCagr {
-                    AssetsTableWithCagr(sortOrder: $sortOrder)
+                    AssetsTableWithCagr(sortOrder: $sortOrder, selectedAsset: $selectedAssetForChart)
                 } else {
-                    AssetsTableBase(sortOrder: $sortOrder)
+                    AssetsTableBase(sortOrder: $sortOrder, selectedAsset: $selectedAssetForChart)
                 }
 
                 Divider()
@@ -39,7 +66,25 @@ struct HoldingsView: View {
         .onChange(of: showIndicators) { _, newValue in
             if newValue { Task { await loadIndicators() } }
         }
+        .sheet(item: $selectedAssetForChart) { asset in
+            NavigationStack {
+                CandlestickView(asset: asset)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("關閉") { selectedAssetForChart = nil }
+                        }
+                    }
+            }
+            .frame(minWidth: 700, minHeight: 600)
+        }
         .toolbar {
+            ToolbarItem {
+                Toggle(isOn: $showStats.animation()) {
+                    Label("組合統計", systemImage: "ruler")
+                }
+                .toggleStyle(.button)
+                .help("顯示/隱藏組合統計面板")
+            }
             ToolbarItem {
                 Toggle(isOn: $showCagr) {
                     Label("CAGR", systemImage: "calendar.badge.clock")
@@ -79,6 +124,7 @@ struct HoldingsView: View {
 private struct AssetsTableBase: View {
     @Environment(PortfolioStore.self) private var store
     @Binding var sortOrder: [KeyPathComparator<EnrichedAsset>]
+    @Binding var selectedAsset: Asset?
 
     var body: some View {
         Table(store.enrichedAssets, sortOrder: $sortOrder) {
@@ -115,6 +161,16 @@ private struct AssetsTableBase: View {
             TableColumn("日變動%") { ea in
                 plPctText(ea.dailyChangePct)
             }.width(80)
+            TableColumn("K 線") { ea in
+                Button {
+                    selectedAsset = ea.asset
+                } label: {
+                    Image(systemName: "chart.candlestick")
+                }
+                .buttonStyle(.borderless)
+                .disabled(ea.ticker == nil || ea.ticker!.isEmpty)
+                .help("查看 K 線圖")
+            }.width(50)
         }
     }
 }
@@ -124,6 +180,7 @@ private struct AssetsTableBase: View {
 private struct AssetsTableWithCagr: View {
     @Environment(PortfolioStore.self) private var store
     @Binding var sortOrder: [KeyPathComparator<EnrichedAsset>]
+    @Binding var selectedAsset: Asset?
 
     var body: some View {
         Table(store.enrichedAssets, sortOrder: $sortOrder) {
@@ -163,6 +220,16 @@ private struct AssetsTableWithCagr: View {
             TableColumn("年化報酬 CAGR") { ea in
                 plPctText(ea.cagr)
             }.width(120)
+            TableColumn("K 線") { ea in
+                Button {
+                    selectedAsset = ea.asset
+                } label: {
+                    Image(systemName: "chart.candlestick")
+                }
+                .buttonStyle(.borderless)
+                .disabled(ea.ticker == nil || ea.ticker!.isEmpty)
+                .help("查看 K 線圖")
+            }.width(50)
         }
     }
 }

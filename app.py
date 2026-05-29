@@ -594,6 +594,295 @@ with tab_holdings:
 
         st.divider()
 
+        # ── Portfolio Statistics (Feature B) ─────────────────────────────────
+        with st.expander("📐 組合統計", expanded=False):
+            st.caption("組合風險與收益指標，數值僅供參考。")
+
+            from src.calculations import calc_margin_ratio, calc_monthly_interest
+
+            _assets_list = portfolio.get("assets", [])
+
+            # Margin ratio
+            _margin_assets_val, _margin_loan_total, _margin_ratio = calc_margin_ratio(
+                enriched_df, raw_liabilities_df if raw_liabilities_df is not None else pd.DataFrame(), fx_rates
+            )
+            # Monthly interest
+            _, _monthly_interest_total = calc_monthly_interest(
+                raw_liabilities_df if raw_liabilities_df is not None else pd.DataFrame(), fx_rates
+            )
+
+            _stat_c1, _stat_c2 = st.columns(2)
+
+            with _stat_c1:
+                # 1. 融資維持率
+                if _margin_loan_total == 0:
+                    st.metric("📊 融資維持率", "無融資", help="無融資負債，不計算融資維持率")
+                else:
+                    _ratio_val = _margin_ratio
+                    if _ratio_val == float("inf"):
+                        _ratio_str = "∞"
+                        _ratio_color = "green"
+                    else:
+                        _ratio_str = f"{_ratio_val:.1f}%"
+                        _ratio_color = "green" if _ratio_val >= 166 else ("orange" if _ratio_val >= 130 else "red")
+                    st.markdown(
+                        f"**📊 融資維持率**<br>"
+                        f"<span style='font-size:1.6rem;font-weight:800;color:{_ratio_color}'>{_ratio_str}</span>",
+                        unsafe_allow_html=True,
+                    )
+                    st.caption("≥166% 安全 · 130–166% 注意 · <130% 危險")
+
+                # 3. 夏普比率
+                try:
+                    from src.technical_indicators import calc_portfolio_sharpe
+                    _sharpe = calc_portfolio_sharpe(enriched_df, fx_rates)
+                    if _sharpe is not None:
+                        st.metric("📐 夏普比率 (Sharpe)", f"{_sharpe:.3f}", help="年化報酬 / 年化波動率（無風險利率 = 0）")
+                    else:
+                        st.metric("📐 夏普比率 (Sharpe)", "資料不足", help="需要 daily_change_pct 或損益資料")
+                except Exception:
+                    st.metric("📐 夏普比率 (Sharpe)", "計算中...")
+
+                # 5. 組合 β
+                try:
+                    from src.technical_indicators import calc_portfolio_beta, _to_yf_ticker
+                    _beta_ticker_weights = {}
+                    for _a in _assets_list:
+                        _yft = _to_yf_ticker(_a)
+                        if _yft:
+                            _mv_row = enriched_df[enriched_df["id"] == _a["id"]] if "id" in enriched_df.columns else pd.DataFrame()
+                            if not _mv_row.empty:
+                                _mv_val = float(_mv_row["market_value"].iloc[0])
+                                if _mv_val > 0:
+                                    _beta_ticker_weights[_yft] = _mv_val
+                    if _beta_ticker_weights:
+                        with st.spinner("計算 Beta..."):
+                            _beta = calc_portfolio_beta(_beta_ticker_weights)
+                        if _beta is not None:
+                            st.metric("📈 組合 β (Beta)", f"{_beta:.3f}", help="相對 SPY 的系統性風險，3個月日收益率計算")
+                        else:
+                            st.metric("📈 組合 β (Beta)", "資料不足")
+                    else:
+                        st.metric("📈 組合 β (Beta)", "無可追蹤資產")
+                except Exception:
+                    st.metric("📈 組合 β (Beta)", "計算中...")
+
+            with _stat_c2:
+                # 2. 每月利息
+                st.metric(
+                    "💸 每月利息",
+                    f"{display_currency} {fmt(_monthly_interest_total, display_currency)}" if _monthly_interest_total > 0 else "無負債利息",
+                    help="所有負債每月利息合計（已換算為顯示幣別）",
+                )
+
+                # 4. 最大回撤
+                try:
+                    from src.technical_indicators import _to_yf_ticker as _to_yf2
+                    import yfinance as _yf_mdd
+                    _mdd_tickers = list({
+                        _to_yf2(_a)
+                        for _a in _assets_list
+                        if _to_yf2(_a) is not None
+                    })
+                    if _mdd_tickers:
+                        with st.spinner("計算最大回撤..."):
+                            try:
+                                _mdd_raw = _yf_mdd.download(
+                                    _mdd_tickers, period="1y", auto_adjust=True, progress=False
+                                )
+                                if not _mdd_raw.empty and "Close" in _mdd_raw.columns:
+                                    _mdd_close = _mdd_raw["Close"]
+                                    if not hasattr(_mdd_close, "columns"):
+                                        _mdd_close = _mdd_close.to_frame(name=_mdd_tickers[0])
+                                    # Equal-weight portfolio NAV
+                                    _normed = _mdd_close.dropna(how="all").ffill()
+                                    _normed = _normed / _normed.iloc[0]
+                                    _port_nav = _normed.mean(axis=1)
+                                    _roll_max = _port_nav.cummax()
+                                    _drawdown = (_port_nav - _roll_max) / _roll_max
+                                    _max_dd = float(_drawdown.min()) * 100
+                                    st.metric(
+                                        "📉 最大回撤 (1Y)",
+                                        f"{_max_dd:.2f}%",
+                                        help="過去1年等權重組合最大回撤",
+                                    )
+                                else:
+                                    st.metric("📉 最大回撤 (1Y)", "需要回測資料")
+                            except Exception:
+                                st.metric("📉 最大回撤 (1Y)", "需要回測資料")
+                    else:
+                        st.metric("📉 最大回撤 (1Y)", "需要回測資料")
+                except Exception:
+                    st.metric("📉 最大回撤 (1Y)", "需要回測資料")
+
+                # 6. 加權平均成本
+                try:
+                    _df_cost = enriched_df.copy()
+                    _df_cost["cost_basis"] = pd.to_numeric(_df_cost["cost_basis"], errors="coerce")
+                    _df_cost["quantity"] = pd.to_numeric(_df_cost["quantity"], errors="coerce")
+                    _df_cost["market_value"] = pd.to_numeric(_df_cost["market_value"], errors="coerce")
+                    _total_cb = float(_df_cost["cost_basis"].sum())
+                    _total_mv = float(_df_cost["market_value"].sum())
+                    if _total_mv > 0:
+                        _wavg_cost_ratio = _total_cb / _total_mv
+                        st.metric(
+                            "⚖️ 加權平均成本比",
+                            f"{_wavg_cost_ratio:.3f}",
+                            delta=f"總成本 {display_currency} {fmt(_total_cb, display_currency)}",
+                            delta_color="off",
+                            help="總成本 / 總市值（<1 表示整體獲利）",
+                        )
+                    else:
+                        st.metric("⚖️ 加權平均成本比", "—")
+                except Exception:
+                    st.metric("⚖️ 加權平均成本比", "計算中...")
+
+        # ── Candlestick Chart (Feature A) ─────────────────────────────────────
+        @st.cache_data(ttl=300, show_spinner=False)
+        def _cached_ohlcv(ticker: str, period_days: int = 90) -> pd.DataFrame:
+            from src.technical_indicators import fetch_ohlcv
+            return fetch_ohlcv(ticker, period_days)
+
+        with st.expander("📊 技術線圖", expanded=False):
+            st.caption("K 線圖 · 移動平均 · 布林通道 · RSI — 數值僅供參考，不構成買賣建議。")
+
+            from src.technical_indicators import _to_yf_ticker as _to_yf_chart, calc_sma, calc_bollinger, calc_rsi
+
+            # Build selector: assets with a resolvable ticker
+            _chart_assets = []
+            for _a in portfolio.get("assets", []):
+                if _a.get("category") in ("stock", "stock_tw", "etf", "crypto", "commodity"):
+                    _t = _to_yf_chart(_a)
+                    if _t:
+                        _chart_assets.append({"name": _a["name"], "ticker": _t})
+
+            if not _chart_assets:
+                st.info("持倉中沒有可顯示線圖的資產（需要股票、ETF 或加密貨幣）。")
+            else:
+                _chart_options = {f"{_ca['name']} ({_ca['ticker']})": _ca["ticker"] for _ca in _chart_assets}
+                _selected_label = st.selectbox("選擇資產", list(_chart_options.keys()), key="chart_asset_selector")
+                _selected_ticker = _chart_options[_selected_label]
+
+                _ov_col1, _ov_col2, _ov_col3 = st.columns(3)
+                with _ov_col1:
+                    _show_sma20 = st.checkbox("SMA 20", value=True, key="chart_sma20")
+                with _ov_col2:
+                    _show_sma50 = st.checkbox("SMA 50", value=True, key="chart_sma50")
+                with _ov_col3:
+                    _show_bb = st.checkbox("布林通道 (BB 20)", value=False, key="chart_bb")
+
+                with st.spinner(f"載入 {_selected_ticker} 線圖資料..."):
+                    _ohlcv = _cached_ohlcv(_selected_ticker, 90)
+
+                if _ohlcv.empty:
+                    st.warning(f"無法取得 {_selected_ticker} 的 OHLCV 資料，請確認代碼是否正確。")
+                else:
+                    _closes = _ohlcv["close"].tolist()
+                    _dates  = _ohlcv["date"].tolist()
+
+                    # Compute overlays
+                    _sma20 = calc_sma(_closes, 20) if _show_sma20 else None
+                    _sma50 = calc_sma(_closes, 50) if _show_sma50 else None
+                    _bb_upper, _bb_mid, _bb_lower = calc_bollinger(_closes, 20) if _show_bb else (None, None, None)
+                    _rsi_series = None
+                    try:
+                        import pandas as _pd_chart
+                        _rsi_series = [None] * len(_closes)
+                        _price_series = _pd_chart.Series(_closes)
+                        for _ri in range(14, len(_closes)):
+                            _rsi_series[_ri] = calc_rsi(_price_series.iloc[:_ri + 1], 14)
+                    except Exception:
+                        _rsi_series = None
+
+                    # Build figure: 3 rows — candlestick, volume, RSI
+                    _fig = go.Figure()
+                    from plotly.subplots import make_subplots
+                    _fig = make_subplots(
+                        rows=3, cols=1,
+                        shared_xaxes=True,
+                        row_heights=[0.55, 0.20, 0.25],
+                        vertical_spacing=0.03,
+                        subplot_titles=("K 線", "成交量", "RSI (14)"),
+                    )
+
+                    # Row 1: Candlestick
+                    _fig.add_trace(go.Candlestick(
+                        x=_dates,
+                        open=_ohlcv["open"].tolist(),
+                        high=_ohlcv["high"].tolist(),
+                        low=_ohlcv["low"].tolist(),
+                        close=_closes,
+                        name="K線",
+                        increasing_line_color="#22c55e",
+                        decreasing_line_color="#ef4444",
+                    ), row=1, col=1)
+
+                    if _show_sma20 and _sma20:
+                        _fig.add_trace(go.Scatter(
+                            x=_dates, y=_sma20, name="SMA 20",
+                            line=dict(color="orange", width=1.5),
+                            connectgaps=False,
+                        ), row=1, col=1)
+
+                    if _show_sma50 and _sma50:
+                        _fig.add_trace(go.Scatter(
+                            x=_dates, y=_sma50, name="SMA 50",
+                            line=dict(color="#3b82f6", width=1.5),
+                            connectgaps=False,
+                        ), row=1, col=1)
+
+                    if _show_bb and _bb_upper is not None:
+                        _fig.add_trace(go.Scatter(
+                            x=_dates, y=_bb_upper, name="BB 上軌",
+                            line=dict(color="rgba(139,92,246,0.7)", dash="dash", width=1),
+                            connectgaps=False,
+                        ), row=1, col=1)
+                        _fig.add_trace(go.Scatter(
+                            x=_dates, y=_bb_lower, name="BB 下軌",
+                            line=dict(color="rgba(139,92,246,0.7)", dash="dash", width=1),
+                            fill="tonexty",
+                            fillcolor="rgba(139,92,246,0.07)",
+                            connectgaps=False,
+                        ), row=1, col=1)
+
+                    # Row 2: Volume bars
+                    if "volume" in _ohlcv.columns:
+                        _vol_colors = [
+                            "#22c55e" if (i == 0 or _closes[i] >= _closes[i - 1]) else "#ef4444"
+                            for i in range(len(_closes))
+                        ]
+                        _fig.add_trace(go.Bar(
+                            x=_dates,
+                            y=_ohlcv["volume"].tolist(),
+                            name="成交量",
+                            marker_color=_vol_colors,
+                            showlegend=False,
+                        ), row=2, col=1)
+
+                    # Row 3: RSI
+                    if _rsi_series:
+                        _fig.add_trace(go.Scatter(
+                            x=_dates, y=_rsi_series, name="RSI (14)",
+                            line=dict(color="#f59e0b", width=1.5),
+                            connectgaps=False,
+                        ), row=3, col=1)
+                        _fig.add_hline(y=70, line_dash="dot", line_color="rgba(239,68,68,0.5)", row=3, col=1)
+                        _fig.add_hline(y=30, line_dash="dot", line_color="rgba(34,197,94,0.5)", row=3, col=1)
+
+                    _fig.update_layout(
+                        height=620,
+                        margin=dict(l=0, r=0, t=30, b=0),
+                        xaxis_rangeslider_visible=False,
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(0,0,0,0)",
+                    )
+                    _fig.update_xaxes(showgrid=True, gridcolor="rgba(226,232,240,0.6)")
+                    _fig.update_yaxes(showgrid=True, gridcolor="rgba(226,232,240,0.6)")
+                    _fig.update_yaxes(title_text="RSI", row=3, col=1, range=[0, 100])
+
+                    st.plotly_chart(_fig, use_container_width=True)
+
         # ── Technical Indicators ─────────────────────────────────────────────
         with st.expander("📈 技術指標（RSI / MACD）", expanded=False):
             st.caption("數值僅供參考，不構成買賣建議。RSI 基於 14 日，MACD 基於 12/26/9 EMA。")

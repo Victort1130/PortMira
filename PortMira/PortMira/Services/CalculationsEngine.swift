@@ -137,6 +137,37 @@ enum CalculationsEngine {
         .sorted { abs($0.deltaValue) > abs($1.deltaValue) }
     }
 
+    // MARK: - Margin ratio (融資維持率)
+    // Returns total market value / total margin-loan liabilities * 100 (percentage).
+    // Returns nil when there are no margin_loan liabilities.
+    static func calcMarginRatio(
+        enrichedAssets: [EnrichedAsset],
+        liabilities:    [Liability],
+        fxRates:        [String: Double]
+    ) -> Double? {
+        let marginLoans = liabilities.filter { $0.category == .marginLoan }
+        guard !marginLoans.isEmpty else { return nil }
+        let totalLoan = marginLoans.reduce(0) {
+            $0 + $1.amount * (fxRates[$1.currency.rawValue] ?? 1.0)
+        }
+        guard totalLoan > 0 else { return nil }
+        let totalMV = enrichedAssets.reduce(0) { $0 + $1.marketValue }
+        return totalMV / totalLoan * 100
+    }
+
+    // MARK: - Monthly interest (月利息)
+    // Sums (amount × fxRate × annualRate / 12) across all liabilities.
+    static func calcMonthlyInterest(
+        liabilities: [Liability],
+        fxRates:     [String: Double]
+    ) -> Double {
+        liabilities.reduce(0) { sum, liab in
+            guard let rate = liab.annualRate else { return sum }
+            let fx = fxRates[liab.currency.rawValue] ?? 1.0
+            return sum + liab.amount * fx * rate / 12
+        }
+    }
+
     // MARK: - Scenario analysis
 
     static func applyScenario(
