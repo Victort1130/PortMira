@@ -1,179 +1,167 @@
 # PortMira
 
-PortMira 是一款原生 macOS 投資組合追蹤應用程式，以 SwiftUI 打造，支援股票、ETF、加密貨幣、大宗商品、現金等多資產類別，整合即時報價、自動再平衡建議、情境壓力測試、歷史回測、預算管理與財經新聞，讓使用者在一個 app 內掌握完整的個人財務狀況。
+> A native macOS portfolio tracker built with SwiftUI — real-time quotes, rebalancing, backtesting, scenario analysis, and more. No subscriptions, no third-party UI frameworks, no cloud dependency.
+
+![Platform](https://img.shields.io/badge/platform-macOS-lightgrey?logo=apple)
+![Swift](https://img.shields.io/badge/Swift-5.0-orange?logo=swift)
+![Xcode](https://img.shields.io/badge/Xcode-16%2B-blue?logo=xcode)
+![License](https://img.shields.io/badge/license-MIT-green)
 
 ---
 
-## 功能列表
+## Overview
 
-### 總覽（Dashboard）
-- 即時顯示淨資產、總資產、總負債與年化報酬率（CAGR）
-- 資產大類佔比環形圖（股票 / ETF / 加密貨幣 / 大宗商品 / 現金）
-- 個別資產配置環形圖（市值前 97% 個別顯示，其餘合併為「其他」）
-- 大宗商品行情 Widget（黃金 GC=F、WTI 原油 CL=F、白銀 SI=F、天然氣 NG=F）
-- 幣別切換（TWD / USD），即時重新換算所有市值
+PortMira lets you track every asset you own — stocks, ETFs, crypto, commodities, cash, and liabilities — in one place. It pulls live prices from Yahoo Finance, calculates your net worth across currencies, and gives you tools to analyse, stress-test, and rebalance your portfolio without ever leaving the app.
 
-### 持倉明細（Holdings）
-- 可排序的資產明細表格：資產名稱、代號、數量、現價、市值、總成本、未實現損益、損益%、日變動%
-- 選擇性顯示 CAGR 欄位（年化報酬率）
-- 負債明細表格（信用卡、貸款、融資等）
-- 組合統計面板（Sharpe-like 統計資訊）
-- RSI（14 期）與 MACD（12-26-9）技術指標即時計算，含中文解讀標籤
-- 點擊資產可開啟 K 線圖（含 SMA 20 / SMA 50 均線疊加、成交量子圖）
-
-### 再平衡（Rebalance）
-- 依設定的目標比例（Target %）計算各資產偏差
-- 可調容忍帶（0–15%），自動標示買入 / 賣出 / 持有建議
-- 顯示調整金額與調整股數／單位
-- 目前配置 vs 目標配置並排柱狀圖
-
-### 情境分析（Scenario Analysis）
-- 透過滑桿設定各資產大類漲跌幅（-100%～+100%）與外幣匯率變動
-- 內建四大歷史重大事件 Presets：
-  - 2008 金融海嘯
-  - 2020 COVID 崩盤
-  - 2022 升息熊市
-  - 2000 科技泡沫
-- 每個歷史事件附帶期間說明與避險建議
-- 即時計算情境後淨資產、各資產影響金額與影響百分比
-- 情境可儲存 / 載入 / 刪除（存入 portfolio.json）
-
-### 編輯組合（Edit Portfolio）
-- 新增、編輯、刪除資產（支援 US Stock、TW Stock、ETF、Crypto、Commodity、Cash、Other）
-- 每筆資產可設定：名稱、代號、類別、數量、成本均價、幣別、買入日期、目標比例、目標最小 / 最大比例、備注
-- 新增、編輯、刪除負債（信用卡、貸款、融資貸款等），可設定年利率
-
-### 預算追蹤（Budget）
-- 按類別（餐飲、交通、訂閱服務、娛樂、投資支出、醫療、購物、其他）設定月 / 雙週 / 週預算
-- 可設定預算類別、金額、幣別、週期、警示閾值（0–100%）
-- 進度條即時顯示使用比率，超過閾值顯示橘色警示 banner
-- 支出記錄新增、編輯、刪除，按年 / 月折疊顯示歷史記錄
-
-### 回測工具（Backtest）
-- 選擇任意日期範圍，對組合中含代號的資產執行歷史回測
-- 指標：總報酬率、年化報酬率（CAGR）、最大回撤（Max Drawdown）
-- 支援基準指數對比：SPY（S&P 500）、QQQ（NASDAQ 100）、0050.TW（台股50）
-- 折線圖呈現組合 vs 基準指數走勢
-- 各資產個別報酬率排名列表
-
-### 財經新聞（News）
-- 自動抓取持倉 ticker 與預設 ticker（SPY、QQQ、BTC-USD、GC=F、0050.TW）的相關新聞
-- 去重排序（最新優先），顯示來源與相對發布時間（X 分鐘前 / X 小時前 / X 天前）
-- 點擊標題以預設瀏覽器開啟原文連結
+All data is stored locally as JSON. No account required.
 
 ---
 
-## 技術棧
+## Features
 
-| 層級 | 技術 |
-|------|------|
-| UI 框架 | SwiftUI（NavigationSplitView、HSplitView、Table、Charts） |
-| 語言 | Swift 5.0 |
-| 狀態管理 | `@Observable`（iOS 17+ / macOS 14+ Observation 框架） |
-| 圖表 | Swift Charts（環形圖、柱狀圖、折線圖、K 線圖 RectangleMark + RuleMark） |
-| 並發 | Swift Concurrency（`async/await`、`actor`、`withTaskGroup`） |
-| 報價來源 | Yahoo Finance API（`query1/query2.finance.yahoo.com`） |
-| 匯率來源 | ExchangeRate-API（`api.exchangerate-api.com/v4/latest`） |
-| 技術指標 | 自實作 RSI（Wilder 平滑法）、MACD（EMA 12-26-9） |
-| 本地儲存 | JSON 檔案持久化至 `Application Support/PortMira/` |
-| Bundle ID | `com.github.victort1130.PortMira` |
+### Dashboard
+- Net worth, total assets, total liabilities, and portfolio CAGR at a glance
+- Asset allocation donut charts by category and individual holding
+- Commodities widget (Gold, WTI Crude, Silver, Natural Gas)
+- Currency switcher — TWD / USD, applied instantly across all values
+
+### Holdings
+- Sortable table: price, market value, cost basis, unrealised P&L, daily change %, CAGR
+- RSI (14) and MACD (12-26-9) calculated on demand with plain-language signals
+- Candlestick chart sheet per holding: 3-month OHLCV, SMA 20/50 overlay, volume sub-chart
+- Portfolio statistics panel
+- Liabilities table with annual rate display
+
+### Rebalance
+- Set a target allocation % per asset with a configurable tolerance band (0–15%)
+- Per-asset min/max overrides for finer control
+- Auto-flags Buy / Hold / Sell with required trade amounts and units
+- Side-by-side current vs target bar chart
+
+### Scenario Analysis
+- Slide each asset category between −100% and +100% shock
+- FX rate shocks to see cross-currency impact
+- Four built-in historical presets: 2008 GFC, 2020 COVID crash, 2022 rate hike bear market, 2000 dot-com bust — each with period notes and hedging commentary
+- Save, load, and delete custom scenarios
+
+### Backtest
+- Pick any date range; backtests all holdings that have a ticker
+- Metrics: total return, CAGR, max drawdown
+- Compare against SPY, QQQ, or 0050.TW
+- Cumulative return chart + per-asset ranking
+
+### Budget Tracker
+- Categories: dining, transport, subscriptions, entertainment, investment, healthcare, shopping, other
+- Set a budget per category with a period (monthly / bi-weekly / weekly) and alert threshold
+- Progress bars turn amber when you approach the threshold
+- Full expense history with monthly/yearly grouping
+
+### News
+- Aggregates headlines for all tickers in your portfolio plus SPY, QQQ, BTC-USD, GC=F, 0050.TW
+- De-duplicated, sorted by recency, with relative timestamps
+- Opens source article in your default browser
 
 ---
 
-## 專案結構
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| UI | SwiftUI — `NavigationSplitView`, `Table`, `HSplitView` |
+| Language | Swift 5.0 |
+| State | `@Observable` + `@MainActor` (macOS 14+ Observation framework) |
+| Concurrency | Swift Concurrency — `async/await`, `actor`, `withTaskGroup` |
+| Charts | Swift Charts — donut, bar, line, candlestick (`RectangleMark` + `RuleMark`) |
+| Prices | Yahoo Finance REST API — no API key required |
+| FX Rates | ExchangeRate-API — no API key required |
+| Indicators | Custom RSI (Wilder smoothing) and MACD (EMA 12-26-9) |
+| Persistence | JSON files in `~/Library/Application Support/PortMira/` |
+
+---
+
+## Getting Started
+
+### Requirements
+
+| | Minimum |
+|-|---------|
+| macOS (run) | macOS 15 Sequoia |
+| Xcode | 16.0 |
+| Swift | 5.0 |
+| Internet | Required for prices, FX rates, and news |
+
+### Installation
+
+```bash
+git clone https://github.com/Victort1130/portmira.git
+cd portmira
+open PortMira/PortMira.xcodeproj
+```
+
+1. In Xcode, set the run destination to **My Mac**
+2. Under **Signing & Capabilities**, set your Development Team
+3. Press `⌘R` to build and run
+4. Go to **Edit Portfolio** to add your holdings, then hit **Refresh** to fetch live prices
+
+> Prices and rates are fetched from public Yahoo Finance and ExchangeRate-API endpoints — no API key or registration needed.
+
+---
+
+## Project Structure
 
 ```
 PortMira/
-├── PortMira.xcodeproj/          # Xcode 專案設定
-└── PortMira/                    # 主要原始碼
-    ├── PortMiraApp.swift         # App 進入點，注入 PortfolioStore / BudgetStore
-    ├── ContentView.swift         # NavigationSplitView 側欄，定義 AppSection 路由
+├── PortMira.xcodeproj/
+└── PortMira/
+    ├── PortMiraApp.swift             # Entry point; injects PortfolioStore & BudgetStore
+    ├── ContentView.swift             # NavigationSplitView sidebar & AppSection routing
     │
     ├── Models/
-    │   ├── Portfolio.swift       # Asset、Liability、Scenario、Portfolio 資料模型與 enum
-    │   ├── EnrichedAsset.swift   # 即時報價後的富化資產、RebalanceAction、ScenarioResult
-    │   └── Budget.swift          # Expense、Budget、BudgetStatus、BudgetPeriod 模型
+    │   ├── Portfolio.swift           # Asset, Liability, Scenario, Portfolio + enums
+    │   ├── EnrichedAsset.swift       # Price-enriched asset, RebalanceAction, ScenarioResult
+    │   └── Budget.swift              # Expense, Budget, BudgetStatus, BudgetPeriod
     │
     ├── Services/
-    │   ├── PortfolioStore.swift  # @Observable 全域狀態，持久化與價格刷新協調
-    │   ├── BudgetStore.swift     # @Observable 預算 / 支出狀態管理
-    │   ├── PriceService.swift    # Yahoo Finance 即時報價 + ExchangeRate-API 匯率
-    │   ├── CalculationsEngine.swift # 資產富化、淨值計算、再平衡、情境分析、CAGR
-    │   ├── BacktestEngine.swift  # actor，歷史 OHLCV 抓取與回測指標計算
-    │   ├── TechnicalIndicatorService.swift # actor，RSI / MACD 計算
-    │   └── NewsService.swift     # actor，Yahoo Finance 財經新聞聚合去重
+    │   ├── PortfolioStore.swift      # @Observable global state; persistence & price refresh
+    │   ├── BudgetStore.swift         # @Observable budget & expense state
+    │   ├── PriceService.swift        # Yahoo Finance quotes + ExchangeRate-API FX
+    │   ├── CalculationsEngine.swift  # Enrichment, net worth, rebalance, scenario, CAGR
+    │   ├── BacktestEngine.swift      # actor — historical OHLCV fetch & backtest metrics
+    │   ├── TechnicalIndicatorService.swift  # actor — RSI / MACD
+    │   └── NewsService.swift         # actor — Yahoo Finance news aggregation & dedup
     │
     ├── Data/
-    │   └── HistoricalEvents.swift # 內建四大歷史事件 Presets 資料
+    │   └── HistoricalEvents.swift    # Built-in historical scenario presets
     │
-    ├── Views/
-    │   ├── Dashboard/
-    │   │   └── DashboardView.swift     # 總覽、圓餅圖、大宗商品行情 Widget
-    │   ├── Holdings/
-    │   │   ├── HoldingsView.swift      # 持倉明細表格、技術指標面板
-    │   │   ├── CandlestickView.swift   # K 線圖（OHLCV + SMA + 成交量）
-    │   │   └── PortfolioStatsView.swift # 組合統計面板
-    │   ├── Rebalance/
-    │   │   └── RebalanceView.swift     # 再平衡建議表格與配置柱狀圖
-    │   ├── Scenario/
-    │   │   └── ScenarioView.swift      # 情境分析控制面板與結果顯示
-    │   ├── Edit/
-    │   │   ├── EditPortfolioView.swift # 資產 / 負債列表管理
-    │   │   ├── AssetFormView.swift     # 資產新增 / 編輯表單
-    │   │   └── LiabilityFormView.swift # 負債新增 / 編輯表單
-    │   ├── Budget/
-    │   │   ├── BudgetView.swift        # 預算總覽、進度條、支出明細
-    │   │   ├── BudgetSettingsView.swift # 預算設定表單
-    │   │   └── ExpenseFormView.swift   # 支出新增 / 編輯表單
-    │   ├── Backtest/
-    │   │   └── BacktestView.swift      # 回測設定、折線圖、各資產報酬排名
-    │   └── News/
-    │       └── NewsView.swift          # 財經新聞列表
-    │
-    └── Assets.xcassets/              # App 圖示與 Accent Color
+    └── Views/
+        ├── Dashboard/DashboardView.swift
+        ├── Holdings/
+        │   ├── HoldingsView.swift
+        │   ├── CandlestickView.swift
+        │   └── PortfolioStatsView.swift
+        ├── Rebalance/RebalanceView.swift
+        ├── Scenario/ScenarioView.swift
+        ├── Edit/
+        │   ├── EditPortfolioView.swift
+        │   ├── AssetFormView.swift
+        │   └── LiabilityFormView.swift
+        ├── Budget/
+        │   ├── BudgetView.swift
+        │   ├── BudgetSettingsView.swift
+        │   └── ExpenseFormView.swift
+        ├── Backtest/BacktestView.swift
+        └── News/NewsView.swift
 ```
 
 ---
 
-## 執行方式
+## Data Format
 
-### 系統需求
-
-| 項目 | 版本 |
-|------|------|
-| Xcode | 16.0 以上（需支援 Swift Concurrency + Swift Charts） |
-| macOS（開發機） | macOS 15 Sequoia 以上 |
-| macOS（部署目標） | 26.5（project.pbxproj `MACOSX_DEPLOYMENT_TARGET`） |
-| Swift | 5.0 |
-
-### 步驟
-
-1. 複製或下載本 repo
-2. 以 Xcode 開啟 `PortMira.xcodeproj`
-3. 在 Signing & Capabilities 設定開發者帳號（Development Team）
-4. 選擇 macOS scheme，按 ⌘R 執行
-5. 首次啟動後，前往「編輯組合」新增資產，再按 Refresh 按鈕抓取即時報價
-
-> 注意：報價與匯率功能需要網路連線。Yahoo Finance 與 ExchangeRate-API 皆為免費且無需 API Key。
-
----
-
-## 資料說明
-
-### portfolio.json
-
-路徑：`~/Library/Application Support/PortMira/portfolio.json`
-
-應用程式啟動時自動讀取，每次新增 / 修改 / 刪除資產後自動寫入（atomic write）。
-
-格式概覽：
+Portfolio data lives at `~/Library/Application Support/PortMira/portfolio.json` and is written atomically on every change.
 
 ```json
 {
-  "meta": {
-    "last_updated": "2026-05-30",
-    "version": "0.2.0"
-  },
+  "meta": { "last_updated": "2026-05-30", "version": "0.2.0" },
   "assets": [
     {
       "id": "uuid",
@@ -186,25 +174,23 @@ PortMira/
       "purchase_date": "2023-01-15",
       "target_pct": 20.0,
       "target_min_pct": 15.0,
-      "target_max_pct": 25.0,
-      "note": "核心持股"
+      "target_max_pct": 25.0
     }
   ],
   "liabilities": [
     {
       "id": "uuid",
-      "name": "房貸",
+      "name": "Mortgage",
       "category": "loan",
       "amount": 3000000,
       "currency": "TWD",
-      "annual_rate": 0.0185,
-      "note": ""
+      "annual_rate": 0.0185
     }
   ],
   "scenarios": [
     {
       "id": "sc_abc123",
-      "name": "升息情境",
+      "name": "Rate Hike",
       "created_at": "2026-05-30",
       "shocks": {
         "categories": { "stock": -0.15, "crypto": -0.30 },
@@ -215,18 +201,20 @@ PortMira/
 }
 ```
 
-支援的 `category` 值：`stock`、`stock_tw`、`etf`、`crypto`、`commodity`、`cash`、`other`
+**Supported `category` values:** `stock` `stock_tw` `etf` `crypto` `commodity` `cash` `other`
 
-支援的 `currency` 值：`TWD`、`USD`、`EUR`、`JPY`、`GBP`
+**Supported `currency` values:** `TWD` `USD` `EUR` `JPY` `GBP`
 
-### budget_data.json
-
-路徑：`~/Library/Application Support/PortMira/budget_data.json`
-
-儲存預算設定與支出記錄，由 BudgetStore 管理讀寫，格式為 `{ "budgets": [...], "expenses": [...] }`。
+Budget data is stored separately at `~/Library/Application Support/PortMira/budget_data.json`.
 
 ---
 
 ## Screenshots
 
-<!-- Screenshots -->
+<!-- Add screenshots here -->
+
+---
+
+## License
+
+MIT License — see [LICENSE](LICENSE) for details.
