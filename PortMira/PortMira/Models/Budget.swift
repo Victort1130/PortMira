@@ -71,7 +71,7 @@ enum CardType: String, Codable, CaseIterable, Identifiable {
 
 // MARK: - PaymentCard
 
-struct PaymentCard: Codable, Identifiable {
+struct PaymentCard: Codable, Identifiable, Hashable {
     var id: String
     var cardName: String
     var bank: String
