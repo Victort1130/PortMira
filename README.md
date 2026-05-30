@@ -1,119 +1,132 @@
 # PortMira
 
-**PortMira — A local-first portfolio mirror.**
+> A local-first portfolio tracker available as a native macOS app (SwiftUI) and a web app (Python / Streamlit) — sharing the same JSON data format and feature set.
 
-PortMira 是一款本地優先的個人投資組合追蹤工具，支援股票、ETF、加密貨幣、大宗商品、現金等多資產類別，整合即時報價、自動再平衡建議、情境壓力測試、歷史回測、預算管理與財經新聞。所有資料僅存於本機，無需帳號，不上傳任何資料。
+![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Web-lightgrey?logo=apple)
+![Swift](https://img.shields.io/badge/Swift-5.0-orange?logo=swift)
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python)
+![License](https://img.shields.io/badge/license-MIT-green)
 
 ---
 
-## 雙平台架構
+## Architecture
 
-PortMira 同時提供兩個前端，共享相同的 JSON 資料格式與核心邏輯：
+PortMira ships two independent frontends that read and write the same `portfolio.json` format:
 
-| 平台 | 技術 | 路徑 | 啟動方式 |
-|------|------|------|---------|
-| **Web（Python）** | Streamlit + Plotly | `app.py` / `src/` | `streamlit run app.py` |
-| **macOS 原生** | SwiftUI + Swift Charts | `PortMira/` | Xcode 開啟 `PortMira.xcodeproj` |
+| Platform | Stack | Entry point |
+|----------|-------|-------------|
+| **macOS native** | SwiftUI + Swift Charts | `PortMira/PortMira.xcodeproj` |
+| **Web** | Streamlit + Plotly | `app.py` |
 
 ```
-PortMira/                        ← git repo 根目錄
-├── app.py                       ← Streamlit Web app 入口
-├── src/                         ← Python 核心邏輯
-│   ├── calculations.py          ← 資產計算、淨資產、CAGR
-│   ├── price_fetcher.py         ← Yahoo Finance / CoinGecko 報價
-│   ├── technical_indicators.py  ← RSI、MACD
-│   ├── backtest.py              ← 歷史回測引擎
-│   ├── budget_calc.py           ← 預算計算
-│   ├── news_fetcher.py          ← 財經新聞抓取
-│   ├── charts.py                ← Plotly 圖表
-│   ├── historical_events.py     ← 歷史情境 Presets
-│   ├── models.py                ← 資料模型
-│   └── storage.py               ← JSON 讀寫
+PortMira/                        ← repo root
+├── app.py                       ← Streamlit web app entry
+├── src/                         ← Python core
+│   ├── calculations.py
+│   ├── price_fetcher.py
+│   ├── technical_indicators.py
+│   ├── backtest.py
+│   ├── budget_calc.py
+│   ├── news_fetcher.py
+│   ├── charts.py
+│   ├── historical_events.py
+│   ├── models.py
+│   └── storage.py
 ├── data/
-│   └── portfolio.json           ← 共用資料格式
+│   └── portfolio.json           ← shared data format
 ├── requirements.txt
 └── PortMira/                    ← macOS SwiftUI app
     ├── PortMira.xcodeproj
     └── PortMira/
-        ├── Models/              ← Portfolio、Asset、Budget
-        ├── Services/            ← PortfolioStore、PriceService、TechnicalIndicatorService 等
-        └── Views/               ← Dashboard、Holdings、Rebalance、Scenario、News 等
+        ├── Models/
+        ├── Services/
+        └── Views/
 ```
 
 ---
 
-## 功能
+## Features
 
-| 功能 | Web (Streamlit) | macOS (SwiftUI) |
-|------|:-:|:-:|
-| 總覽 Dashboard（淨資產、配置圓餅圖） | ✅ | ✅ |
-| 持倉明細（可排序表格、損益、日變動）| ✅ | ✅ |
-| K 線圖（3 個月 OHLCV + SMA 20/50）  | — | ✅ |
-| 技術指標（RSI 14、MACD 12-26-9）    | ✅ | ✅ |
-| 再平衡建議（目標比例 + 容忍帶）      | ✅ | ✅ |
-| 情境分析（壓力測試 + 歷史事件 Preset）| ✅ | ✅ |
-| 編輯組合（資產 + 負債 CRUD）         | ✅ | ✅ |
-| 預算追蹤（類別預算 + 支出記錄）       | ✅ | ✅ |
-| 歷史回測（CAGR、Max Drawdown、基準指數對比）| ✅ | ✅ |
-| 財經新聞（Yahoo Finance 即時新聞）   | ✅ | ✅ |
-| 幣別切換（TWD / USD）               | ✅ | ✅ |
+| Feature | Web | macOS |
+|---------|:---:|:-----:|
+| Dashboard — net worth, allocation donut chart | ✅ | ✅ |
+| Holdings — sortable table, P&L, daily change | ✅ | ✅ |
+| Candlestick chart (3-month OHLCV + SMA 20/50) | — | ✅ |
+| Technical indicators — RSI 14, MACD 12-26-9 | ✅ | ✅ |
+| Rebalance — target allocation + tolerance band | ✅ | ✅ |
+| Scenario analysis — stress test + historical presets | ✅ | ✅ |
+| Edit portfolio — asset & liability CRUD | ✅ | ✅ |
+| Budget tracker — category budgets + expense log | ✅ | ✅ |
+| Backtest — CAGR, max drawdown, benchmark comparison | ✅ | ✅ |
+| Financial news — Yahoo Finance live feed | ✅ | ✅ |
+| Currency switch — TWD / USD | ✅ | ✅ |
 
 ---
 
-## 技術棧
-
-### Web — Python / Streamlit
-
-| 用途 | 套件 |
-|------|------|
-| UI | Streamlit |
-| 資料處理 | Pandas |
-| 圖表 | Plotly |
-| 股票 / ETF 報價 | yfinance（Yahoo Finance） |
-| 加密貨幣報價 | CoinGecko API |
-| 匯率 | ExchangeRate-API |
-| 資料儲存 | 本機 JSON |
+## Tech Stack
 
 ### macOS — Swift / SwiftUI
 
-| 用途 | 技術 |
-|------|------|
-| UI 框架 | SwiftUI（macOS 15+） |
-| 狀態管理 | `@Observable` + `@MainActor` |
-| 圖表 | Swift Charts |
-| 並發 | Swift Concurrency（actor、TaskGroup） |
-| 報價 / K 線 | Yahoo Finance v8 API |
-| 技術指標 | 自實作 RSI / MACD |
-| 資料儲存 | 本機 JSON（Application Support sandbox） |
+| | |
+|-|-|
+| UI | SwiftUI (`NavigationSplitView`, `Table`, `HSplitView`) |
+| State | `@Observable` + `@MainActor` |
+| Charts | Swift Charts |
+| Concurrency | Swift Concurrency — `actor`, `withTaskGroup` |
+| Prices & news | Yahoo Finance v8 REST API |
+| Indicators | Custom RSI (Wilder) + MACD (EMA 12-26-9) |
+| Storage | JSON in `~/Library/Application Support/PortMira/` |
+
+### Web — Python / Streamlit
+
+| | |
+|-|-|
+| UI | Streamlit |
+| Data | Pandas |
+| Charts | Plotly |
+| Prices | yfinance (Yahoo Finance), CoinGecko API |
+| FX rates | ExchangeRate-API |
+| Storage | Local JSON |
 
 ---
 
-## 執行方式
+## Getting Started
 
-### Web（Python）
+### macOS App
+
+**Requirements:** macOS 15 Sequoia, Xcode 16+
 
 ```bash
+git clone https://github.com/Victort1130/PortMira.git
+open PortMira/PortMira.xcodeproj
+```
+
+1. Set destination to **My Mac**
+2. Set your Development Team under **Signing & Capabilities**
+3. Press `⌘R`
+
+### Web App
+
+**Requirements:** Python 3.10+
+
+```bash
+git clone https://github.com/Victort1130/PortMira.git
+cd PortMira
 pip install -r requirements.txt
 streamlit run app.py
 ```
 
-瀏覽器開啟 `http://localhost:8501`
-
-### macOS App
-
-- **需求：** macOS 15+、Xcode 16+
-- 開啟 `PortMira/PortMira.xcodeproj`
-- 選擇 destination 為 **My Mac**
-- `Cmd + R` 執行
+Open `http://localhost:8501` in your browser.
 
 ---
 
-## 資料格式
+## Data Format
 
-兩個平台共用 `portfolio.json`，結構如下：
+Both platforms share `portfolio.json` (macOS writes to `Application Support`; the web app reads from `data/`):
 
 ```json
 {
+  "meta": { "last_updated": "2026-05-31", "version": "0.2.0" },
   "assets": [
     {
       "id": "uuid",
@@ -121,32 +134,35 @@ streamlit run app.py
       "category": "stock",
       "ticker": "AAPL",
       "quantity": 10,
-      "cost_per_unit": 150.0,
+      "cost_per_unit": 170.5,
       "currency": "USD",
       "purchase_date": "2023-01-15",
       "target_pct": 20.0
     }
   ],
   "liabilities": [],
-  "scenarios": [],
-  "meta": { "last_updated": "2025-05-30", "version": "0.2.0" }
+  "scenarios": []
 }
 ```
 
-資產類別（`category`）：`stock` / `stock_tw` / `etf` / `crypto` / `commodity` / `cash` / `other`
+**`category`:** `stock` `stock_tw` `etf` `crypto` `commodity` `cash` `other`
+
+**`currency`:** `TWD` `USD` `EUR` `JPY` `GBP`
 
 ---
 
-## 隱私
+## Privacy
 
-所有資料僅存於本機。無帳號、無雲端同步、不傳送任何資料至外部伺服器。報價資料來自公開 API（Yahoo Finance、CoinGecko），僅用於即時顯示，不儲存。
-
----
-
-<!-- Screenshots -->
+All data is stored locally. No account, no cloud sync, nothing sent to external servers. Price and news data is fetched from public APIs (Yahoo Finance, CoinGecko) for display only and is never persisted remotely.
 
 ---
 
-## Team
+## Screenshots
 
-大學 Python 程式設計期末專案 — 4 人小組。
+<!-- Add screenshots here -->
+
+---
+
+## License
+
+MIT License — see [LICENSE](LICENSE) for details.
