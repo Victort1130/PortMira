@@ -3,9 +3,10 @@ import SwiftUI
 struct BudgetView: View {
     @Environment(BudgetStore.self) var budgetStore
     @Environment(PortfolioStore.self) var portfolioStore
-    @State private var showAddExpense = false
-    @State private var showSettings = false
-    @State private var editingExpense: Expense? = nil
+    @State private var showAddExpense    = false
+    @State private var showSettings      = false
+    @State private var showCardManager   = false
+    @State private var editingExpense:   Expense? = nil
 
     var statuses: [BudgetStatus] {
         budgetStore.calcBudgetStatuses(
@@ -88,6 +89,12 @@ struct BudgetView: View {
                 Button("設定") { showSettings = true }
             }
             ToolbarItem {
+                Button { showCardManager = true } label: {
+                    Label("我的卡片", systemImage: "creditcard.viewfinder")
+                }
+                .help("管理信用卡 / 金融卡")
+            }
+            ToolbarItem {
                 Button { showAddExpense = true } label: {
                     Label("新增支出", systemImage: "plus")
                 }
@@ -104,6 +111,11 @@ struct BudgetView: View {
         .sheet(isPresented: $showSettings) {
             BudgetSettingsView()
                 .environment(budgetStore)
+        }
+        .sheet(isPresented: $showCardManager) {
+            CardManagementView()
+                .environment(budgetStore)
+                .environment(portfolioStore)
         }
     }
 
@@ -187,7 +199,14 @@ struct BudgetProgressCard: View {
 }
 
 struct ExpenseRow: View {
+    @Environment(BudgetStore.self) var budgetStore
     let expense: Expense
+
+    private var paymentCard: PaymentCard? {
+        guard let id = expense.paymentCardId else { return nil }
+        return budgetStore.cards.first { $0.id == id }
+    }
+
     var body: some View {
         HStack {
             Image(systemName: expense.category.icon)
@@ -200,10 +219,21 @@ struct ExpenseRow: View {
                 }
             }
             Spacer()
-            VStack(alignment: .trailing) {
+            VStack(alignment: .trailing, spacing: 2) {
                 Text("\(expense.amount, format: .number.precision(.fractionLength(0))) \(expense.currency)")
                     .font(.subheadline.monospacedDigit())
-                Text(expense.date).font(.caption).foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    Text(expense.date).font(.caption).foregroundStyle(.secondary)
+                    if let card = paymentCard {
+                        Text("···\(card.lastFour)")
+                            .font(.caption2)
+                            .padding(.horizontal, 4).padding(.vertical, 1)
+                            .background(.secondary.opacity(0.12))
+                            .clipShape(RoundedRectangle(cornerRadius: 3))
+                    } else {
+                        Text("現金").font(.caption2).foregroundStyle(.tertiary)
+                    }
+                }
             }
         }
         .padding(.vertical, 2)

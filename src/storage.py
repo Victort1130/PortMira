@@ -8,7 +8,8 @@ DEFAULT_PATH = "data/portfolio.json"
 _EMPTY_PORTFOLIO = {"assets": [], "liabilities": [], "scenarios": [], "meta": {"last_updated": ""}}
 
 EXPENSES_FILE = "data/expenses.json"
-BUDGETS_FILE = "data/budgets.json"
+BUDGETS_FILE  = "data/budgets.json"
+CARDS_FILE    = "data/cards.json"
 
 
 def load_portfolio(filepath=None):
@@ -95,6 +96,19 @@ def save_budgets(budgets: list) -> None:
     os.makedirs(os.path.dirname(BUDGETS_FILE), exist_ok=True)
     with open(BUDGETS_FILE, "w", encoding="utf-8") as f:
         json.dump(budgets, f, ensure_ascii=False, indent=2)
+
+
+def load_cards() -> list:
+    if not os.path.exists(CARDS_FILE):
+        return []
+    with open(CARDS_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def save_cards(cards: list) -> None:
+    os.makedirs(os.path.dirname(CARDS_FILE), exist_ok=True)
+    with open(CARDS_FILE, "w", encoding="utf-8") as f:
+        json.dump(cards, f, ensure_ascii=False, indent=2)
 
 
 class Storage:

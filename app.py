@@ -1224,18 +1224,21 @@ with tab_scenario:
 # TAB 6 — 預算追蹤
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_budget:
-    from src.storage import load_expenses, save_expenses, load_budgets, save_budgets
-    from src.budget_calc import calc_budget_status, get_budget_alerts, generate_expense_id, generate_budget_id
-    from src.models import EXPENSE_CATEGORIES, BUDGET_PERIODS
+    from src.storage import load_expenses, save_expenses, load_budgets, save_budgets, load_cards, save_cards
+    from src.budget_calc import calc_budget_status, get_budget_alerts, generate_expense_id, generate_budget_id, generate_card_id
+    from src.models import EXPENSE_CATEGORIES, BUDGET_PERIODS, CARD_NETWORKS, CARD_TYPE_DISPLAY
     import datetime as _dt
 
     if "expenses" not in st.session_state:
         st.session_state.expenses = load_expenses()
     if "budgets" not in st.session_state:
         st.session_state.budgets = load_budgets()
+    if "cards" not in st.session_state:
+        st.session_state.cards = load_cards()
 
     _expenses = st.session_state.expenses
     _budgets  = st.session_state.budgets
+    _cards    = st.session_state.cards
     _fx_rates_bgt = fx_rates if fx_rates else {}
     _base_cur_bgt = display_currency
 
@@ -1280,7 +1283,13 @@ with tab_budget:
                 _ecol1, _ecol2, _ecol3 = st.columns([4, 1, 1])
                 with _ecol1:
                     _note_txt = f" — {_e['note']}" if _e.get("note") else ""
-                    st.caption(f"**{_e['date']}** {_e['category']} {_e['amount']:,.0f} {_e['currency']}{_note_txt}")
+                    _cid = _e.get("payment_card_id")
+                    if _cid:
+                        _pc = next((c for c in _cards if c["id"] == _cid), None)
+                        _pm_txt = f" `···{_pc['last_four']}`" if _pc else ""
+                    else:
+                        _pm_txt = " `現金`"
+                    st.caption(f"**{_e['date']}** {_e['category']} {_e['amount']:,.0f} {_e['currency']}{_pm_txt}{_note_txt}")
                 with _ecol2:
                     if st.button("✏️", key=f"edit_exp_{_e['id']}", help="編輯"):
                         st.session_state["_editing_expense_id"] = _e["id"]
@@ -1354,16 +1363,24 @@ with tab_budget:
                                           index=["TWD", "USD", "EUR", "JPY", "GBP"].index(_editing_exp["currency"])
                                           if _editing_exp["currency"] in ["TWD", "USD", "EUR", "JPY", "GBP"] else 0,
                                           key="edit_exp_cur")
+                _epm_opts   = [None] + [c["id"] for c in _cards]
+                _epm_labels = ["💵 現金"] + [f"{c['bank']} {c['card_name']} ···{c['last_four']}" for c in _cards]
+                _curr_pm    = _editing_exp.get("payment_card_id")
+                _epm_idx    = _epm_opts.index(_curr_pm) if _curr_pm in _epm_opts else 0
+                _edit_pm_idx = st.selectbox("付款方式", range(len(_epm_opts)),
+                                             format_func=lambda i: _epm_labels[i],
+                                             index=_epm_idx, key="edit_exp_payment")
                 _edit_note = st.text_input("備註", value=_editing_exp.get("note", ""), key="edit_exp_note")
                 _ec1, _ec2 = st.columns(2)
                 with _ec1:
                     if st.form_submit_button("💾 儲存修改"):
                         _updated = {**_editing_exp,
-                                    "date": _edit_date.isoformat(),
-                                    "category": _edit_cat,
-                                    "amount": _edit_amt,
-                                    "currency": _edit_cur,
-                                    "note": _edit_note}
+                                    "date":            _edit_date.isoformat(),
+                                    "category":        _edit_cat,
+                                    "amount":          _edit_amt,
+                                    "currency":        _edit_cur,
+                                    "payment_card_id": _epm_opts[_edit_pm_idx],
+                                    "note":            _edit_note}
                         st.session_state.expenses = [_updated if e["id"] == _editing_id else e for e in _expenses]
                         save_expenses(st.session_state.expenses)
                         st.session_state.pop("_editing_expense_id", None)
@@ -1380,20 +1397,122 @@ with tab_budget:
             _exp_cat      = st.selectbox("類別", EXPENSE_CATEGORIES, key="exp_cat")
             _exp_amount   = st.number_input("金額", min_value=0.01, value=100.0, step=1.0, key="exp_amount")
             _exp_currency = st.selectbox("幣別", ["TWD", "USD", "EUR", "JPY", "GBP"], key="exp_currency")
+            _pm_opts   = [None] + [c["id"] for c in _cards]
+            _pm_labels = ["💵 現金"] + [f"{c['bank']} {c['card_name']} ···{c['last_four']}" for c in _cards]
+            _def_idx   = next((i for i, c in enumerate(_cards) if c.get("is_default")), -1)
+            _pm_default = _def_idx + 1 if _def_idx >= 0 else 0
+            _exp_pm_idx = st.selectbox("付款方式", range(len(_pm_opts)),
+                                       format_func=lambda i: _pm_labels[i],
+                                       index=_pm_default, key="exp_payment")
             _exp_note     = st.text_input("備註（選填）", key="exp_note")
             if st.form_submit_button("新增支出"):
                 _new_exp = {
-                    "id":       generate_expense_id(),
-                    "date":     _exp_date.isoformat(),
-                    "category": _exp_cat,
-                    "amount":   _exp_amount,
-                    "currency": _exp_currency,
-                    "note":     _exp_note,
+                    "id":              generate_expense_id(),
+                    "date":            _exp_date.isoformat(),
+                    "category":        _exp_cat,
+                    "amount":          _exp_amount,
+                    "currency":        _exp_currency,
+                    "payment_card_id": _pm_opts[_exp_pm_idx],
+                    "note":            _exp_note,
                 }
                 st.session_state.expenses.append(_new_exp)
                 save_expenses(st.session_state.expenses)
                 st.success("已新增支出！")
                 st.rerun()
+
+        st.divider()
+        # ── 我的卡片管理 ──────────────────────────────────────────
+        with st.expander("💳 我的卡片", expanded=False):
+            if _cards:
+                st.markdown("**已設定的卡片**")
+                for _c in _cards:
+                    _cc1, _cc2, _cc3 = st.columns([5, 1, 1])
+                    with _cc1:
+                        _def_tag  = " ⭐" if _c.get("is_default") else ""
+                        _tier_txt = f" · {_c['card_tier']}" if _c.get("card_tier") else ""
+                        _type_txt = CARD_TYPE_DISPLAY.get(_c.get("card_type", ""), "")
+                        st.caption(
+                            f"**{_c['bank']} {_c['card_name']}**{_tier_txt}{_def_tag}  \n"
+                            f"{_c.get('network','')} · {_type_txt} · ····{_c['last_four']}"
+                        )
+                    with _cc2:
+                        if st.button("✏️", key=f"edit_card_{_c['id']}", help="編輯"):
+                            st.session_state["_editing_card_id"] = _c["id"]
+                            st.rerun()
+                    with _cc3:
+                        if st.button("🗑️", key=f"del_card_{_c['id']}", help="刪除"):
+                            st.session_state.cards = [x for x in _cards if x["id"] != _c["id"]]
+                            save_cards(st.session_state.cards)
+                            st.session_state.pop("_editing_card_id", None)
+                            st.rerun()
+                st.divider()
+
+            _editing_card_id = st.session_state.get("_editing_card_id")
+            _editing_card    = next((c for c in _cards if c["id"] == _editing_card_id), None) if _editing_card_id else None
+            _card_form_title = f"✏️ 編輯：{_editing_card['bank']} {_editing_card['card_name']}" if _editing_card else "➕ 新增卡片"
+            _card_form_key   = "edit_card_form" if _editing_card else "add_card_form"
+            st.markdown(f"**{_card_form_title}**")
+
+            with st.form(_card_form_key, clear_on_submit=not bool(_editing_card)):
+                _cf_name    = st.text_input("卡名", value=_editing_card["card_name"] if _editing_card else "")
+                _cf_bank    = st.text_input("銀行", value=_editing_card["bank"] if _editing_card else "")
+                _cf_network = st.selectbox(
+                    "發卡組織", CARD_NETWORKS,
+                    index=CARD_NETWORKS.index(_editing_card["network"])
+                          if _editing_card and _editing_card.get("network") in CARD_NETWORKS else 0
+                )
+                _cf_tier    = st.text_input("卡等（如 Platinum）", value=_editing_card.get("card_tier","") if _editing_card else "")
+                _cf_last4   = st.text_input("末四碼", max_chars=4, value=_editing_card["last_four"] if _editing_card else "")
+                _cf_types   = list(CARD_TYPE_DISPLAY.keys())
+                _cf_type    = st.selectbox(
+                    "類型", _cf_types,
+                    format_func=lambda x: CARD_TYPE_DISPLAY[x],
+                    index=_cf_types.index(_editing_card["card_type"])
+                          if _editing_card and _editing_card.get("card_type") in _cf_types else 0
+                )
+                # Liability link
+                _cc_liabs   = [l for l in portfolio.get("liabilities", []) if l.get("category") == "credit_card"]
+                _liab_opts  = [None] + [l["id"] for l in _cc_liabs]
+                _liab_lbls  = ["不連結"] + [l["name"] for l in _cc_liabs]
+                _curr_liab  = _editing_card.get("linked_liability_id") if _editing_card else None
+                _liab_idx   = _liab_opts.index(_curr_liab) if _curr_liab in _liab_opts else 0
+                _cf_liab_i  = st.selectbox("連結信用卡負債（選填）", range(len(_liab_opts)),
+                                           format_func=lambda i: _liab_lbls[i], index=_liab_idx)
+                _cf_default = st.checkbox("設為預設付款方式",
+                                          value=_editing_card.get("is_default", False) if _editing_card else False)
+
+                _cf_b1, _cf_b2 = st.columns(2)
+                with _cf_b1:
+                    _cf_submitted = st.form_submit_button("💾 儲存" if _editing_card else "新增卡片")
+                with _cf_b2:
+                    _cf_cancelled = st.form_submit_button("取消") if _editing_card else False
+
+                if _cf_submitted and _cf_name and _cf_bank and len(_cf_last4) == 4:
+                    _new_card = {
+                        "id":                  _editing_card["id"] if _editing_card else generate_card_id(),
+                        "card_name":           _cf_name,
+                        "bank":                _cf_bank,
+                        "network":             _cf_network,
+                        "card_tier":           _cf_tier,
+                        "last_four":           _cf_last4,
+                        "card_type":           _cf_type,
+                        "linked_liability_id": _liab_opts[_cf_liab_i],
+                        "is_default":          _cf_default,
+                    }
+                    if _cf_default:
+                        for _oc in st.session_state.cards:
+                            _oc["is_default"] = False
+                    if _editing_card:
+                        st.session_state.cards = [_new_card if c["id"] == _editing_card_id else c
+                                                  for c in st.session_state.cards]
+                    else:
+                        st.session_state.cards.append(_new_card)
+                    save_cards(st.session_state.cards)
+                    st.session_state.pop("_editing_card_id", None)
+                    st.rerun()
+                if _cf_cancelled:
+                    st.session_state.pop("_editing_card_id", None)
+                    st.rerun()
 
         st.divider()
         with st.expander("⚙️ 設定預算", expanded=len(_budgets) == 0):

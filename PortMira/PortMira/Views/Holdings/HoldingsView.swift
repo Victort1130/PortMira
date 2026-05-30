@@ -167,7 +167,7 @@ private struct AssetsTableBase: View {
                 Button {
                     selectedAsset = ea.asset
                 } label: {
-                    Image(systemName: "chart.candlestick")
+                    Image(systemName: "chart.xyaxis.line")
                 }
                 .buttonStyle(.borderless)
                 .disabled(ea.ticker == nil || ea.ticker!.isEmpty)
@@ -227,7 +227,7 @@ private struct AssetsTableWithCagr: View {
                     Button {
                         selectedAsset = ea.asset
                     } label: {
-                        Image(systemName: "chart.candlestick")
+                        Image(systemName: "chart.xyaxis.line")
                     }
                     .buttonStyle(.borderless)
                     .disabled(ea.ticker == nil || ea.ticker!.isEmpty)

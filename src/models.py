@@ -39,7 +39,26 @@ COMMODITY_TICKERS = {
 
 
 EXPENSE_CATEGORIES = ["餐飲", "交通", "訂閱服務", "娛樂", "投資支出", "醫療", "購物", "其他"]
-BUDGET_PERIODS = ["月", "雙週", "週"]
+BUDGET_PERIODS     = ["月", "雙週", "週"]
+CARD_NETWORKS      = ["Visa", "Mastercard", "JCB", "UnionPay", "Amex", "其他"]
+CARD_TYPES         = ["credit", "debit"]
+CARD_TYPE_DISPLAY  = {"credit": "信用卡", "debit": "簽帳金融卡"}
+
+
+@dataclass
+class PaymentCard:
+    id: str
+    card_name: str
+    bank: str
+    network: str          # from CARD_NETWORKS
+    card_tier: str
+    last_four: str
+    card_type: str        # "credit" or "debit"
+    linked_liability_id: Optional[str] = None
+    is_default: bool = False
+
+    def to_dict(self):
+        return asdict(self)
 
 
 @dataclass
@@ -50,6 +69,7 @@ class Expense:
     amount: float
     currency: str
     note: str = ""
+    payment_card_id: Optional[str] = None
 
 
 @dataclass

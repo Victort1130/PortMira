@@ -66,3 +66,7 @@ def generate_expense_id() -> str:
 
 def generate_budget_id() -> str:
     return generate_id("bgt")
+
+
+def generate_card_id() -> str:
+    return generate_id("card")
