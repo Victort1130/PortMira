@@ -3,6 +3,8 @@ import pandas as pd
 from datetime import date, datetime
 from typing import Optional
 
+from src.price_fetcher import fetch_all_fx_rates
+
 CRYPTO_TICKER_MAP = {
     "bitcoin": "BTC-USD", "ethereum": "ETH-USD", "binancecoin": "BNB-USD",
     "cardano": "ADA-USD", "solana": "SOL-USD", "ripple": "XRP-USD",
@@ -59,6 +61,14 @@ def run_backtest(assets: list, start_date: str, end_date: str, base_currency: st
     if not backtest_assets:
         return {"error": "沒有可回測的資產（需要有代碼的股票、ETF 或加密貨幣）", "skipped": skipped}
 
+    # Convert every asset's value into base_currency using current FX rates.
+    # (Historical FX is not fetched; a constant rate keeps the curve in one
+    #  currency, consistent with how the dashboard values the portfolio.)
+    _currencies = [a.get("currency", base_currency) for a in backtest_assets]
+    fx_rates = fetch_all_fx_rates(_currencies, base_currency)
+    for a in backtest_assets:
+        a["_fx"] = fx_rates.get(a.get("currency", base_currency), 1.0)
+
     tickers_to_fetch = [a["_ticker"] for a in backtest_assets]
     if benchmark:
         tickers_to_fetch.append(benchmark)
@@ -84,7 +94,7 @@ def run_backtest(assets: list, start_date: str, end_date: str, base_currency: st
             t = a["_ticker"]
             qty = float(a.get("quantity", 0))
             if t in close.columns and not pd.isna(close.loc[dt, t]):
-                total += qty * float(close.loc[dt, t])
+                total += qty * float(close.loc[dt, t]) * a["_fx"]
         portfolio_values.append(total)
 
     # Benchmark values (normalized to same starting value as portfolio)

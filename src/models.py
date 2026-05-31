@@ -12,7 +12,9 @@ class Asset:
     cost_basis: float
     currency: str
     note: Optional[str] = ""
-    last_updated: str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    last_updated: str = field(
+        default_factory=lambda: datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    )
 
     def to_dict(self):
         return asdict(self)

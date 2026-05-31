@@ -77,7 +77,7 @@ def allocation_pie(enriched_df: pd.DataFrame, base_currency: str = "TWD") -> tup
         values=plot_df["value"],
         hole=0.55,
         marker=dict(
-            colors=_PALETTE[:len(plot_df)],
+            colors=[_PALETTE[i % len(_PALETTE)] for i in range(len(plot_df))],
             line=dict(color="#ffffff", width=2),
         ),
         textposition="inside",

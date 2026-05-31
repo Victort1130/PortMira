@@ -75,8 +75,12 @@ def save_portfolio(portfolio, filepath=DEFAULT_PATH):
 def load_expenses() -> list:
     if not os.path.exists(EXPENSES_FILE):
         return []
-    with open(EXPENSES_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(EXPENSES_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"[storage] Error reading {EXPENSES_FILE}: {e}")
+        return []
 
 
 def save_expenses(expenses: list) -> None:
@@ -88,8 +92,12 @@ def save_expenses(expenses: list) -> None:
 def load_budgets() -> list:
     if not os.path.exists(BUDGETS_FILE):
         return []
-    with open(BUDGETS_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(BUDGETS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"[storage] Error reading {BUDGETS_FILE}: {e}")
+        return []
 
 
 def save_budgets(budgets: list) -> None:
@@ -101,8 +109,12 @@ def save_budgets(budgets: list) -> None:
 def load_cards() -> list:
     if not os.path.exists(CARDS_FILE):
         return []
-    with open(CARDS_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(CARDS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"[storage] Error reading {CARDS_FILE}: {e}")
+        return []
 
 
 def save_cards(cards: list) -> None:

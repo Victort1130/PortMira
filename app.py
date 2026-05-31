@@ -592,6 +592,29 @@ with tab_holdings:
             use_container_width=True, hide_index=True,
         )
 
+        # ── 快速刪除持倉 ───────────────────────────────────────────────────────
+        with st.expander("🗑️ 刪除持倉", expanded=False):
+            st.caption("點擊垃圾桶即可從投資組合移除該資產（立即寫回 portfolio.json）。新增請至「✏️ 編輯組合」。")
+            _del_assets = portfolio.get("assets", [])
+            if not _del_assets:
+                st.info("目前沒有可刪除的資產。")
+            for _idx, _da in enumerate(_del_assets):
+                _dc1, _dc2 = st.columns([6, 1])
+                with _dc1:
+                    _da_ticker = f" `{_da['ticker']}`" if _da.get("ticker") else ""
+                    st.caption(f"**{_da.get('name', '—')}**{_da_ticker} · {_da.get('category', '')}")
+                with _dc2:
+                    if st.button("🗑️", key=f"del_holding_{_idx}", help="刪除此資產"):
+                        _fresh = load_portfolio()
+                        _fresh_assets = _fresh.get("assets", [])
+                        if _idx < len(_fresh_assets):
+                            _removed = _fresh_assets.pop(_idx)
+                            _fresh["assets"] = _fresh_assets
+                            save_portfolio(_fresh)
+                            st.cache_data.clear()
+                            st.success(f"已刪除「{_removed.get('name', '資產')}」")
+                            st.rerun()
+
         st.divider()
 
         # ── Portfolio Statistics (Feature B) ─────────────────────────────────
@@ -1156,7 +1179,11 @@ with tab_scenario:
                 "etf": shock_etf, "crypto": shock_crypto,
                 "commodity": shock_commodity, "other": shock_other,
             }
-            fx_shock_map = {"USD": fx_usd, "EUR": fx_eur, "JPY": fx_jpy}
+            # 基準幣別(目前顯示幣別)本身不該被匯率衝擊，否則會平白灌水/縮水所有基準幣資產
+            fx_shock_map = {
+                c: v for c, v in {"USD": fx_usd, "EUR": fx_eur, "JPY": fx_jpy}.items()
+                if c != display_currency
+            }
 
             scenario_df, s_assets, s_liab, s_networth = apply_scenario(
                 enriched_df, liabilities_df, fx_rates,

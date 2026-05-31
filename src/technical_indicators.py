@@ -142,58 +142,72 @@ def calc_bollinger(closes: list, period: int = 20) -> tuple:
 
 
 def calc_portfolio_sharpe(enriched_df: pd.DataFrame, fx_rates: dict) -> Optional[float]:
-    """Compute annualized Sharpe ratio (risk-free rate = 0) from portfolio daily returns.
+    """Annualized Sharpe ratio (risk-free rate = 0) from the portfolio's historical
+    daily-return time series.
 
-    Uses daily_change_pct weighted by market_value if available.
-    Falls back to cost_basis/market_value assuming 1-year hold.
+    Builds a market-value-weighted daily return series from 1y of price history and
+    annualizes mean/volatility. Cash and other untracked assets dilute the weights
+    (they contribute zero return), which correctly lowers portfolio volatility.
     Returns None if insufficient data.
     """
     try:
         df = enriched_df.copy()
-        if "market_value" not in df.columns:
+        if "market_value" not in df.columns or "ticker" not in df.columns:
             return None
         df["market_value"] = pd.to_numeric(df["market_value"], errors="coerce")
-        total_mv = df["market_value"].sum()
+
+        # Total portfolio value (incl. cash/other) is the weight denominator.
+        total_mv = float(df["market_value"].fillna(0).clip(lower=0).sum())
         if total_mv <= 0:
             return None
 
-        if "daily_change_pct" in df.columns:
-            df["daily_change_pct"] = pd.to_numeric(df["daily_change_pct"], errors="coerce")
-            valid = df[df["daily_change_pct"].notna()].copy()
-            if len(valid) < 2:
-                return None
-            # Weight each asset's daily return by market_value
-            weights = valid["market_value"] / valid["market_value"].sum()
-            portfolio_return = float((valid["daily_change_pct"] / 100 * weights).sum())
-            # Use cross-sectional std as a proxy — limited but workable for single-day
-            # Better: compute weighted std of individual returns
-            returns_arr = (valid["daily_change_pct"] / 100).values
-            weights_arr = weights.values
-            weighted_mean = float(np.average(returns_arr, weights=weights_arr))
-            variance = float(np.average((returns_arr - weighted_mean) ** 2, weights=weights_arr))
-            daily_std = float(np.sqrt(variance))
-            if daily_std == 0:
-                return None
-            annualized_return = weighted_mean * 252
-            annualized_std = daily_std * np.sqrt(252)
-            return round(annualized_return / annualized_std, 3)
+        # Aggregate market value per resolvable yfinance ticker.
+        weights: dict[str, float] = {}
+        for _, row in df.iterrows():
+            yf_ticker = _to_yf_ticker(
+                {"category": row.get("category", ""), "ticker": row.get("ticker")}
+            )
+            mv = row.get("market_value")
+            if yf_ticker and pd.notna(mv) and mv > 0:
+                weights[yf_ticker] = weights.get(yf_ticker, 0.0) + float(mv)
+        if not weights:
+            return None
 
-        # Fallback: use unrealized P&L as a proxy for 1-year return
-        if "unrealized_pl_pct" in df.columns:
-            df["unrealized_pl_pct"] = pd.to_numeric(df["unrealized_pl_pct"], errors="coerce")
-            valid = df[df["unrealized_pl_pct"].notna() & (df["market_value"] > 0)].copy()
-            if len(valid) < 2:
-                return None
-            weights = valid["market_value"] / valid["market_value"].sum()
-            returns_arr = (valid["unrealized_pl_pct"] / 100).values
-            weights_arr = weights.values
-            weighted_mean = float(np.average(returns_arr, weights=weights_arr))
-            variance = float(np.average((returns_arr - weighted_mean) ** 2, weights=weights_arr))
-            std = float(np.sqrt(variance))
-            if std == 0:
-                return None
-            return round(weighted_mean / std, 3)
-        return None
+        raw = yf.download(
+            list(weights.keys()),
+            period="1y",
+            auto_adjust=True,
+            progress=False,
+            threads=True,
+        )
+        if raw.empty or "Close" not in raw.columns:
+            return None
+        close_df = raw["Close"]
+        if not hasattr(close_df, "columns"):
+            close_df = close_df.to_frame(name=list(weights.keys())[0])
+
+        daily_returns = close_df.pct_change()
+        portfolio_returns = None
+        for yf_ticker, mv in weights.items():
+            if yf_ticker not in daily_returns.columns:
+                continue
+            weighted = daily_returns[yf_ticker].fillna(0) * (mv / total_mv)
+            portfolio_returns = weighted if portfolio_returns is None else portfolio_returns + weighted
+
+        if portfolio_returns is None:
+            return None
+        portfolio_returns = portfolio_returns.dropna()
+        if len(portfolio_returns) < 20:
+            return None
+
+        daily_mean = float(portfolio_returns.mean())
+        daily_std = float(portfolio_returns.std())
+        if daily_std == 0:
+            return None
+
+        annualized_return = daily_mean * 252
+        annualized_std = daily_std * np.sqrt(252)
+        return round(annualized_return / annualized_std, 3)
     except Exception:
         return None
 
