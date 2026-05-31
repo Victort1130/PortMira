@@ -135,24 +135,27 @@ struct BudgetView: View {
 
     @ViewBuilder
     private func expenseList(_ expenses: [Expense]) -> some View {
-        List {
+        VStack(spacing: 0) {
             ForEach(expenses) { e in
                 ExpenseRow(expense: e)
                     .contentShape(Rectangle())
                     .onTapGesture { editingExpense = e }
-                    .swipeActions(edge: .trailing) {
+                    .contextMenu {
+                        Button { editingExpense = e } label: {
+                            Label("編輯", systemImage: "pencil")
+                        }
+                        Divider()
                         Button(role: .destructive) {
                             if let idx = budgetStore.expenses.firstIndex(where: { $0.id == e.id }) {
                                 budgetStore.deleteExpenses(at: IndexSet([idx]))
                             }
                         } label: { Label("刪除", systemImage: "trash") }
-                        Button { editingExpense = e } label: { Label("編輯", systemImage: "pencil") }
-                            .tint(.blue)
                     }
+                if e.id != expenses.last?.id {
+                    Divider().padding(.leading, 28)
+                }
             }
         }
-        .listStyle(.plain)
-        .frame(minHeight: 44, maxHeight: max(CGFloat(expenses.count) * 56, 280))
     }
 }
 
