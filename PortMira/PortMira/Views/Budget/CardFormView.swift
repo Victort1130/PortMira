@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - Card Management (list + navigation host)
+// MARK: - Card Management (state-based, single sheet window)
 
 struct CardManagementView: View {
     @Environment(BudgetStore.self) var budgetStore
@@ -8,48 +8,57 @@ struct CardManagementView: View {
     @Environment(\.dismiss) var dismiss
 
     @State private var editingCard: PaymentCard? = nil
+    @State private var isAdding              = false
 
     var body: some View {
         NavigationStack {
-            List {
-                if budgetStore.cards.isEmpty {
-                    ContentUnavailableView(
-                        "尚無卡片",
-                        systemImage: "creditcard",
-                        description: Text("點擊右上角「＋」新增信用卡或金融卡")
+            Group {
+                if isAdding || editingCard != nil {
+                    CardFormView(
+                        editing: editingCard,
+                        onDone: { isAdding = false; editingCard = nil }
                     )
-                }
-                ForEach(budgetStore.cards) { card in
-                    CardRow(card: card)
-                        .contentShape(Rectangle())
-                        .onTapGesture { editingCard = card }
-                }
-                .onDelete { offsets in
-                    offsets.forEach { budgetStore.deleteCard(id: budgetStore.cards[$0].id) }
-                }
-            }
-            .navigationTitle("我的卡片")
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("完成") { dismiss() }
-                }
-                ToolbarItem {
-                    NavigationLink {
-                        CardFormView()
-                            .environment(budgetStore)
-                            .environment(portfolioStore)
-                    } label: {
-                        Label("新增", systemImage: "plus")
-                    }
-                }
-            }
-            .navigationDestination(item: $editingCard) { card in
-                CardFormView(editing: card)
                     .environment(budgetStore)
                     .environment(portfolioStore)
+                } else {
+                    cardList
+                }
             }
         }
-        .frame(minWidth: 460, minHeight: 420)
+        .frame(minWidth: 460, minHeight: 500)
+    }
+
+    // MARK: Card List
+
+    private var cardList: some View {
+        List {
+            if budgetStore.cards.isEmpty {
+                ContentUnavailableView(
+                    "尚無卡片",
+                    systemImage: "creditcard",
+                    description: Text("點擊右上角「＋」新增信用卡或金融卡")
+                )
+            }
+            ForEach(budgetStore.cards) { card in
+                CardRow(card: card)
+                    .contentShape(Rectangle())
+                    .onTapGesture { editingCard = card }
+            }
+            .onDelete { offsets in
+                offsets.forEach { budgetStore.deleteCard(id: budgetStore.cards[$0].id) }
+            }
+        }
+        .navigationTitle("我的卡片")
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("完成") { dismiss() }
+            }
+            ToolbarItem {
+                Button { isAdding = true } label: {
+                    Label("新增", systemImage: "plus")
+                }
+            }
+        }
     }
 }
 
@@ -90,14 +99,14 @@ private struct CardRow: View {
     }
 }
 
-// MARK: - Card Form (embedded in CardManagementView's NavigationStack)
+// MARK: - Card Form (runs inside CardManagementView's NavigationStack)
 
 struct CardFormView: View {
     @Environment(BudgetStore.self) var budgetStore
     @Environment(PortfolioStore.self) var portfolioStore
-    @Environment(\.dismiss) var dismiss
 
     var editing: PaymentCard? = nil
+    var onDone:  () -> Void  = {}
 
     @State private var cardName:          String      = ""
     @State private var bank:              String      = ""
@@ -162,7 +171,11 @@ struct CardFormView: View {
             }
         }
         .navigationTitle(isEditing ? "編輯卡片" : "新增卡片")
+        .navigationBarBackButtonHidden(true)
         .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("取消") { onDone() }
+            }
             ToolbarItem(placement: .confirmationAction) {
                 Button("儲存") { save() }
                     .disabled(cardName.isEmpty || bank.isEmpty || lastFour.count != 4)
@@ -197,6 +210,6 @@ struct CardFormView: View {
         )
         if isEditing { budgetStore.updateCard(card) }
         else         { budgetStore.addCard(card) }
-        dismiss()
+        onDone()
     }
 }
