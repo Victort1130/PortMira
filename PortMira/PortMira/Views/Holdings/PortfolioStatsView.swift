@@ -78,7 +78,7 @@ struct PortfolioStatsView: View {
 
     // 3. Sharpe Ratio
     private var sharpeResult: String {
-        let dailyReturns = portfolioDailyReturns
+        let dailyReturns = portfolioReturns
         guard dailyReturns.count >= 20 else { return "資料不足" }
         let mean = dailyReturns.reduce(0, +) / Double(dailyReturns.count)
         let variance = dailyReturns.map { pow($0 - mean, 2) }.reduce(0, +) / Double(dailyReturns.count)
@@ -95,7 +95,7 @@ struct PortfolioStatsView: View {
         guard !isFetchingSPY else { return "計算中" }
         if let _ = spyError { return "無法取得" }
         guard spyReturns.count >= 20 else { return spyReturns.isEmpty ? "計算中" : "資料不足" }
-        let portReturns = portfolioDailyReturns
+        let portReturns = portfolioReturns
         guard portReturns.count >= 20 else { return "資料不足" }
 
         // Align lengths
@@ -137,23 +137,48 @@ struct PortfolioStatsView: View {
         enriched.reduce(0) { $0 + $1.unrealizedPL }
     }
 
-    // Helper: portfolio daily returns (weighted by market value)
-    private var portfolioDailyReturns: [Double] {
+    // Portfolio daily-return time series (market-value weighted), fetched from
+    // ~200 days of price history so Sharpe/Beta have a real series instead of a
+    // single live-price data point (which always read "資料不足").
+    @State private var portfolioReturns: [Double] = []
+
+    private func fetchPortfolioReturns() async {
         let totalMV = enriched.reduce(0) { $0 + $1.marketValue }
-        guard totalMV > 0 else { return [] }
-        // Each enriched asset only has one dailyChangePct data point, so
-        // we compute a single weighted portfolio daily return.
-        // For Sharpe/Beta we need a time series — expose the per-asset
-        // single point as a single-element array.  Real time series would
-        // require storing historical data; we return the single data point.
-        let weighted = enriched.compactMap { ea -> Double? in
-            guard let d = ea.dailyChangePct else { return nil }
-            return d * (ea.marketValue / totalMV)
-        }.reduce(0, +)
-        // Return as [Double] so callers can check count.
-        // We only have 1 day of data from live prices; Sharpe/Beta will
-        // correctly show "資料不足" when count < 20.
-        return enriched.compactMap(\.dailyChangePct).isEmpty ? [] : [weighted]
+        guard totalMV > 0 else { return }
+        let svc = CandlestickService()
+        var series: [(weight: Double, returns: [Double])] = []
+        for ea in enriched {
+            guard let ticker = ea.asset.ticker, !ticker.isEmpty,
+                  ea.category != .cash, ea.category != .other else { continue }
+            let yf = ea.category == .crypto ? cryptoToYahooTicker(ticker) : ticker
+            guard let bars = try? await svc.fetchOHLCV(ticker: yf), bars.count > 1 else { continue }
+            let closes = bars.map(\.close)
+            let rets = zip(closes.dropFirst(), closes.dropLast()).map { ($0 - $1) / $1 }
+            if !rets.isEmpty { series.append((ea.marketValue / totalMV, rets)) }
+        }
+        guard let minLen = series.map({ $0.returns.count }).min(), minLen >= 20 else {
+            portfolioReturns = []
+            return
+        }
+        // Cash / untracked assets keep their weight (zero return) so they
+        // correctly dilute the portfolio's volatility.
+        var combined = [Double](repeating: 0, count: minLen)
+        for entry in series {
+            let tail = Array(entry.returns.suffix(minLen))
+            for i in 0..<minLen { combined[i] += tail[i] * entry.weight }
+        }
+        portfolioReturns = combined
+    }
+
+    private func cryptoToYahooTicker(_ id: String) -> String {
+        let upper = id.uppercased()
+        if upper.hasSuffix("-USD") || upper.hasSuffix("-USDT") { return upper }
+        let map: [String: String] = [
+            "bitcoin": "BTC-USD", "ethereum": "ETH-USD", "binancecoin": "BNB-USD",
+            "cardano": "ADA-USD", "solana": "SOL-USD", "ripple": "XRP-USD",
+            "dogecoin": "DOGE-USD",
+        ]
+        return map[id.lowercased()] ?? "\(upper)-USD"
     }
 
     // MARK: Body
@@ -213,7 +238,10 @@ struct PortfolioStatsView: View {
             )
         }
         .padding(.horizontal)
-        .task { await fetchSPY() }
+        .task {
+            await fetchSPY()
+            await fetchPortfolioReturns()
+        }
     }
 
     // MARK: - Helpers

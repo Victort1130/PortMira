@@ -34,12 +34,16 @@ struct ScenarioView: View {
 
     var result: ScenarioResult? {
         guard !store.enrichedAssets.isEmpty else { return nil }
+        // The base (display) currency must not be FX-shocked — its rate is 1.0,
+        // so shocking it would wrongly inflate/deflate all base-currency assets.
+        var shocks = fxShocks
+        shocks.removeValue(forKey: store.baseCurrency)
         return CalculationsEngine.applyScenario(
             enrichedAssets:  store.enrichedAssets,
             liabilities:     store.portfolio.liabilities,
             fxRates:         store.fxRates,
             categoryShocks:  categoryShocks,
-            fxShocks:        fxShocks
+            fxShocks:        shocks
         )
     }
 

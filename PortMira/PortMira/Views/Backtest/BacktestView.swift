@@ -73,6 +73,7 @@ struct BacktestView: View {
                 assets: store.portfolio.assets,
                 startDate: startDate,
                 endDate: endDate,
+                fxRates: store.fxRates,
                 benchmark: bm
             )
         } catch {

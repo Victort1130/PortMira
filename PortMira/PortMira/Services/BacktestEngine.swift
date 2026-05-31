@@ -21,7 +21,7 @@ actor BacktestEngine {
         "chainlink": "LINK-USD", "litecoin": "LTC-USD", "stellar": "XLM-USD"
     ]
 
-    func run(assets: [Asset], startDate: Date, endDate: Date, benchmark: String?) async throws -> BacktestResult {
+    func run(assets: [Asset], startDate: Date, endDate: Date, fxRates: [String: Double], benchmark: String?) async throws -> BacktestResult {
         var backTestAssets: [(asset: Asset, ticker: String)] = []
         var skipped: [String] = []
 
@@ -76,9 +76,12 @@ actor BacktestEngine {
             var total = 0.0
             for (asset, ticker) in backTestAssets {
                 let qty = asset.quantity
+                // Convert into the base currency, otherwise a mixed TWD/USD
+                // portfolio sums raw prices of different currencies together.
+                let fx = fxRates[asset.currency.rawValue] ?? 1.0
                 if let prices = normalizedPrices[ticker],
                    let entry = prices.last(where: { $0.date <= d }) {
-                    total += qty * entry.close
+                    total += qty * entry.close * fx
                 }
             }
             portfolioValues.append(total)
