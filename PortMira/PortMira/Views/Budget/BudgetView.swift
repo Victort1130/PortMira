@@ -152,7 +152,7 @@ struct BudgetView: View {
             }
         }
         .listStyle(.plain)
-        .frame(minHeight: 44, maxHeight: CGFloat(expenses.count) * 52)
+        .frame(minHeight: 44, maxHeight: max(CGFloat(expenses.count) * 56, 280))
     }
 }
 
