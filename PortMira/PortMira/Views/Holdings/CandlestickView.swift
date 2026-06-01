@@ -18,9 +18,9 @@ struct OHLCVBar: Identifiable {
 // MARK: - Service
 
 actor CandlestickService {
-    func fetchOHLCV(ticker: String) async throws -> [OHLCVBar] {
+    func fetchOHLCV(ticker: String, range: String = "3mo", interval: String = "1d") async throws -> [OHLCVBar] {
         let encodedTicker = ticker.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? ticker
-        let urlStr = "https://query1.finance.yahoo.com/v8/finance/chart/\(encodedTicker)?interval=1d&range=3mo"
+        let urlStr = "https://query1.finance.yahoo.com/v8/finance/chart/\(encodedTicker)?interval=\(interval)&range=\(range)"
         guard let url = URL(string: urlStr) else { throw CandlestickError.invalidURL }
 
         var req = URLRequest(url: url, timeoutInterval: 20)
@@ -94,6 +94,69 @@ enum CandlestickError: LocalizedError {
     }
 }
 
+// MARK: - Chart timeframe (range + candle spacing)
+
+enum ChartTimeframe: String, CaseIterable, Identifiable {
+    case m1 = "1月"
+    case m3 = "3月"
+    case m6 = "6月"
+    case y1 = "1年"
+    case y5 = "5年"
+
+    var id: String { rawValue }
+
+    /// Yahoo Finance `range` parameter.
+    var range: String {
+        switch self {
+        case .m1: return "1mo"
+        case .m3: return "3mo"
+        case .m6: return "6mo"
+        case .y1: return "1y"
+        case .y5: return "5y"
+        }
+    }
+
+    /// Yahoo Finance `interval` (candle spacing): daily for short ranges,
+    /// weekly / monthly for longer ones so candles stay readable.
+    var interval: String {
+        switch self {
+        case .m1, .m3, .m6: return "1d"
+        case .y1:           return "1wk"
+        case .y5:           return "1mo"
+        }
+    }
+
+    /// Candle body / volume bar width in points.
+    var candleWidth: CGFloat {
+        switch self {
+        case .m1: return 9
+        case .m3: return 6
+        case .m6: return 3
+        case .y1: return 5
+        case .y5: return 7
+        }
+    }
+
+    /// X-axis label stride.
+    var axisStride: Calendar.Component {
+        switch self {
+        case .m1:      return .weekOfYear
+        case .m3, .m6: return .month
+        case .y1:      return .month
+        case .y5:      return .year
+        }
+    }
+
+    /// X-axis label format.
+    var axisFormat: Date.FormatStyle {
+        switch self {
+        case .m1:           return .dateTime.month(.narrow).day()
+        case .m3, .m6, .y1: return .dateTime.month(.abbreviated)
+        case .y5:           return .dateTime.year()
+        }
+    }
+}
+
 // MARK: - SMA helpers
 
 private func sma(_ values: [Double], period: Int) -> [Double?] {
@@ -115,6 +178,7 @@ struct CandlestickView: View {
     @State private var errorMsg:   String?    = nil
     @State private var showSMA20:  Bool       = true
     @State private var showSMA50:  Bool       = true
+    @State private var timeframe:  ChartTimeframe = .m3
 
     private var closes: [Double] { bars.map(\.close) }
     private var sma20: [Double?] { sma(closes, period: 20) }
@@ -154,9 +218,17 @@ struct CandlestickView: View {
                 }
             }
         }
-        .navigationTitle("\(asset.name) — K 線圖（3 個月）")
+        .navigationTitle("\(asset.name) — K 線圖")
         .toolbar {
             ToolbarItemGroup {
+                Picker("區間", selection: $timeframe) {
+                    ForEach(ChartTimeframe.allCases) { tf in
+                        Text(tf.rawValue).tag(tf)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .help("選擇時間區間與 K 線間距")
+
                 Toggle(isOn: $showSMA20) {
                     Label("SMA 20", systemImage: "chart.line.flattrend.xyaxis")
                 }
@@ -179,7 +251,7 @@ struct CandlestickView: View {
                 .disabled(isLoading)
             }
         }
-        .task { await load() }
+        .task(id: timeframe) { await load() }
     }
 
     // MARK: - Candlestick chart
@@ -196,7 +268,7 @@ struct CandlestickView: View {
                         x: .value("Date", bar.date),
                         yStart: .value("Body Low",  min(bar.open, bar.close)),
                         yEnd:   .value("Body High", max(bar.open, bar.close)),
-                        width: .fixed(6)
+                        width: .fixed(timeframe.candleWidth)
                     )
                     .foregroundStyle(bar.isGreen ? Color.green : Color.red)
                 }
@@ -219,7 +291,7 @@ struct CandlestickView: View {
                                 x: .value("Date", item.bar.date),
                                 y: .value("SMA20", v)
                             )
-                            .foregroundStyle(Color.orange)
+                            .foregroundStyle(by: .value("均線", "SMA 20"))
                             .lineStyle(StrokeStyle(lineWidth: 1.5))
                             .interpolationMethod(.linear)
                         }
@@ -234,7 +306,7 @@ struct CandlestickView: View {
                                 x: .value("Date", item.bar.date),
                                 y: .value("SMA50", v)
                             )
-                            .foregroundStyle(Color.blue)
+                            .foregroundStyle(by: .value("均線", "SMA 50"))
                             .lineStyle(StrokeStyle(lineWidth: 1.5))
                             .interpolationMethod(.linear)
                         }
@@ -242,13 +314,18 @@ struct CandlestickView: View {
                 }
             }
             .chartXAxis {
-                AxisMarks(values: .stride(by: .month)) {
+                AxisMarks(values: .stride(by: timeframe.axisStride)) {
                     AxisGridLine()
                     AxisTick()
-                    AxisValueLabel(format: .dateTime.month(.abbreviated))
+                    AxisValueLabel(format: timeframe.axisFormat)
                 }
             }
             .chartYAxis { AxisMarks(position: .trailing) }
+            .chartForegroundStyleScale([
+                "SMA 20": Color.orange,
+                "SMA 50": Color.blue,
+            ])
+            .chartLegend((showSMA20 || showSMA50) ? .visible : .hidden)
             .frame(height: 320)
         }
     }
@@ -265,16 +342,16 @@ struct CandlestickView: View {
                     BarMark(
                         x: .value("Date",   bar.date),
                         y: .value("Volume", bar.volume),
-                        width: .fixed(6)
+                        width: .fixed(timeframe.candleWidth)
                     )
                     .foregroundStyle(bar.isGreen ? Color.green.opacity(0.7) : Color.red.opacity(0.7))
                 }
             }
             .chartXAxis {
-                AxisMarks(values: .stride(by: .month)) {
+                AxisMarks(values: .stride(by: timeframe.axisStride)) {
                     AxisGridLine()
                     AxisTick()
-                    AxisValueLabel(format: .dateTime.month(.abbreviated))
+                    AxisValueLabel(format: timeframe.axisFormat)
                 }
             }
             .chartYAxis { AxisMarks(position: .trailing) }

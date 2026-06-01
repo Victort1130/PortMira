@@ -162,6 +162,48 @@ class PortfolioStore {
         save()
     }
 
+    // MARK: - Auto expense liability (synced from BudgetStore)
+
+    /// Stable id for the single liability that mirrors the current cycle's total expenses.
+    static let autoExpenseLiabilityId = "liab_auto_expenses"
+
+    /// Create / update / remove the auto-managed "本期支出" liability so the current
+    /// cycle's bookkeeping total appears in the liabilities section. `amountBase` is
+    /// already converted into `currency`. Overwrites in place (no double counting);
+    /// removes the entry when the cycle total is zero. Only writes to disk on change.
+    func syncAutoExpenseLiability(amountBase: Double, currency: String) {
+        let existingIdx = portfolio.liabilities.firstIndex { $0.id == Self.autoExpenseLiabilityId }
+
+        guard amountBase > 0 else {
+            if existingIdx != nil {
+                portfolio.liabilities.removeAll { $0.id == Self.autoExpenseLiabilityId }
+                save()
+            }
+            return
+        }
+
+        let liab = Liability(
+            id:         Self.autoExpenseLiabilityId,
+            name:       "本期支出（自動）",
+            category:   .otherLiability,
+            amount:     amountBase,
+            currency:   Currency(rawValue: currency) ?? .twd,
+            annualRate: nil,
+            note:       "由記帳本月支出自動匯入，請勿手動編輯"
+        )
+
+        if let idx = existingIdx {
+            if portfolio.liabilities[idx].amount != amountBase
+                || portfolio.liabilities[idx].currency.rawValue != currency {
+                portfolio.liabilities[idx] = liab
+                save()
+            }
+        } else {
+            portfolio.liabilities.append(liab)
+            save()
+        }
+    }
+
     // MARK: - Scenario helpers
 
     func saveScenario(_ scenario: Scenario) {

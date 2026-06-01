@@ -17,6 +17,20 @@ struct BudgetView: View {
 
     var alerts: [BudgetStatus] { statuses.filter { $0.isAlert } }
 
+    // Sum of the current month's expenses, converted to the display base currency.
+    // Feeds the auto-managed "本期支出" liability in the liabilities section.
+    private var currentMonthExpenseTotalBase: Double {
+        let start = currentMonthStart()
+        return budgetStore.expenses
+            .filter { $0.date >= start }
+            .reduce(0.0) { $0 + $1.amount * (portfolioStore.fxRates[$1.currency] ?? 1.0) }
+    }
+
+    // Re-syncs the auto liability whenever the cycle total or display currency changes.
+    private var autoLiabilitySyncKey: String {
+        "\(currentMonthExpenseTotalBase)-\(portfolioStore.baseCurrency)"
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -39,6 +53,11 @@ struct BudgetView: View {
                 } else {
                     ForEach(statuses) { s in
                         BudgetProgressCard(status: s, baseCurrency: portfolioStore.baseCurrency)
+                            .contextMenu {
+                                Button(role: .destructive) {
+                                    budgetStore.deleteBudget(id: s.id)
+                                } label: { Label("刪除預算", systemImage: "trash") }
+                            }
                     }
                 }
 
@@ -84,6 +103,12 @@ struct BudgetView: View {
             .padding()
         }
         .navigationTitle("預算追蹤")
+        .task(id: autoLiabilitySyncKey) {
+            portfolioStore.syncAutoExpenseLiability(
+                amountBase: currentMonthExpenseTotalBase,
+                currency: portfolioStore.baseCurrency
+            )
+        }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button("設定") { showSettings = true }

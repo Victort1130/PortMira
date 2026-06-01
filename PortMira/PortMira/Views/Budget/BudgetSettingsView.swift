@@ -25,6 +25,14 @@ struct BudgetSettingsView: View {
                                     .font(.caption).foregroundStyle(.secondary)
                             }
                             Spacer()
+                            Button(role: .destructive) {
+                                budgetStore.deleteBudget(id: b.id)
+                            } label: {
+                                Image(systemName: "trash")
+                            }
+                            .buttonStyle(.borderless)
+                            .foregroundStyle(.red)
+                            .help("刪除此預算")
                         }
                     }
                     .onDelete { offsets in
