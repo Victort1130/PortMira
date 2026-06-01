@@ -51,12 +51,12 @@ PortMira/                        ← repo root
 |---------|:---:|:-----:|
 | Dashboard — net worth, allocation donut chart | ✅ | ✅ |
 | Holdings — sortable table, P&L, daily change | ✅ | ✅ |
-| Candlestick chart (3-month OHLCV + SMA 20/50) | — | ✅ |
+| Candlestick chart — selectable timeframe (1M/3M/6M/1Y/5Y), SMA 20/50 | — | ✅ |
 | Technical indicators — RSI 14, MACD 12-26-9 | ✅ | ✅ |
 | Rebalance — target allocation + tolerance band | ✅ | ✅ |
 | Scenario analysis — stress test + historical presets | ✅ | ✅ |
 | Edit portfolio — asset & liability CRUD | ✅ | ✅ |
-| Budget tracker — category budgets + expense log | ✅ | ✅ |
+| Budget tracker — deletable budgets, expense log (macOS: auto-imports each cycle's spend into liabilities) | ✅ | ✅ |
 | Backtest — CAGR, max drawdown, benchmark comparison | ✅ | ✅ |
 | Financial news — Yahoo Finance live feed | ✅ | ✅ |
 | Currency switch — TWD / USD | ✅ | ✅ |
